@@ -1,0 +1,6 @@
+# local-only notes / data (repo is public)
+DEMO-NOTES.md
+horntail-import.json
+theme-preview.html
+.claude/
+.DS_Store

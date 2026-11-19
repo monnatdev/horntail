@@ -1,0 +1,1819 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1b3d">
+<title>Horntail Loot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Theme A: navy + gold, 16px base */
+:root{
+  --text:#0f172a; --text2:#5b6478; --line:#dde2ec; --line2:#c5cde0; --bg:#e9edf5; --bg2:#f5f7fb;
+  --navy:#0f1b3d; --navy2:#1a2a5a; --gold:#d4a017; --gold2:#f0c64a;
+  --blue:#1e3a8a; --blue-d:#172f73; --blue-t:#1e3a8a; --blue-l:#eef2ff; --blue-b:#c7d2fe;
+  --green:#0f7b5a; --green-t:#0b5e45; --green-l:#eaf7f1; --green-b:#a8e0c8;
+  --red:#c2410c; --red-t:#9a3412; --red-l:#fff4ed; --red-b:#fed7aa;
+  --amber-l:#fdf6e3; --amber-b:#f0d78c; --amber-t:#7a5a00;
+  --gray-l:#eef1f6; --gray-t:#5b6478;
+  --shadow-sm:0 1px 2px rgba(15,27,61,.05); --shadow:0 2px 6px rgba(15,27,61,.08),0 1px 2px rgba(15,27,61,.04);
+}
+*{box-sizing:border-box}
+html{font-size:16px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Sarabun',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+body.modal-open{overflow:hidden}
+.wrap{max-width:780px;margin:0 auto;padding:0 16px}
+main.wrap{padding-bottom:24px}
+h1{font-size:24px;line-height:1.25;font-weight:700;letter-spacing:-.01em;margin:24px 0 4px;color:var(--navy)}
+h2{font-size:18px;line-height:1.35;font-weight:700;margin:28px 0 10px;color:var(--navy)}
+h3{font-size:16px;font-weight:700;margin:0 0 4px}
+h3.mt2{margin-top:22px;font-size:14px;color:var(--text2);letter-spacing:.03em}
+p{margin:0 0 8px}
+.lead{font-size:15px;color:var(--text2);margin-bottom:18px}
+.mt{margin-top:10px}.mt2{margin-top:20px}
+.muted{color:var(--text2)}
+b,strong{font-weight:700}
+.card-title{font-size:16px;font-weight:700}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid transparent;font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;line-height:1.3;transition:background .15s,border-color .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
+.btn:focus-visible,input:focus-visible,select:focus-visible,.tile:focus-visible{outline:3px solid var(--gold2);outline-offset:2px}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:linear-gradient(180deg,#2748a8,#1e3a8a);color:#fff;box-shadow:0 3px 10px rgba(30,58,138,.28)}
+.btn-primary:hover{background:linear-gradient(180deg,#2a4fb8,#172f73)}
+.btn-success{background:linear-gradient(180deg,#139068,#0f7b5a);color:#fff;box-shadow:0 3px 10px rgba(15,123,90,.25)}
+.btn-success:hover{background:#0b5e45}
+.btn-danger{background:linear-gradient(180deg,#dc5a1e,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(194,65,12,.25)}
+.btn-outline{background:#fff;color:var(--blue-t);border:1.5px solid #9fb0dc;box-shadow:0 1px 2px rgba(15,27,61,.08)}
+.btn-outline:hover{background:var(--blue-l);border-color:var(--blue)}
+.btn-outline-red{background:#fff;color:var(--red-t);border:1.5px solid #f0b48c;box-shadow:0 1px 2px rgba(15,27,61,.08)}
+.btn-outline-red:hover{background:var(--red-l);border-color:var(--red)}
+.btn-chosen{background:var(--green);color:#fff;border:1px solid var(--green);box-shadow:0 2px 8px rgba(15,123,90,.22)}
+.btn-off{background:#fff;color:var(--text2);border:1px solid var(--line2)}
+.btn[disabled]{background:var(--gray-l);color:var(--gray-t);border-color:var(--line);box-shadow:none;cursor:not-allowed;transform:none}
+.btn.btn-mine[disabled]{background:var(--green);color:#fff;border-color:var(--green);cursor:default}
+.btn-block{display:flex;width:100%}
+.btn-lg{min-height:48px;font-size:16px}
+.btn-xl{min-height:52px;font-size:17px;border-radius:12px}
+.btn-sm{min-height:36px;font-size:13px;padding:4px 12px}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px}
+.btn-row>.btn{flex:1 1 170px}
+.reason{margin:5px 0 0;font-size:14px;color:var(--red-t);font-weight:600}
+.reason.ok{color:var(--green)}
+.btn-block+.muted,.btn-block+p.muted{font-size:13px;margin-top:6px}
+.stack>*+*{margin-top:8px}
+
+/* cards */
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 12px;box-shadow:0 1px 3px rgba(15,27,61,.07)}
+.card.blue{background:var(--blue-l);border-color:var(--blue-b);border-left:5px solid var(--blue);box-shadow:none}
+.card.green{background:var(--green-l);border-color:var(--green-b);border-left:5px solid var(--green);box-shadow:none}
+.card.red{background:var(--red-l);border-color:var(--red-b);border-left:5px solid var(--red);box-shadow:none}
+/* action panel: a card that holds buttons (header strip says who it's for) */
+.panel{padding:0;overflow:hidden}
+.panel-head{background:var(--navy);color:#fff;font-weight:700;font-size:14px;padding:8px 16px;display:flex;justify-content:space-between;gap:8px}
+.panel-head span{color:var(--gold2);font-weight:600}
+.panel-body{padding:14px 16px}
+.panel-body>.btn+.btn,.panel-body>.btn+p+.btn{margin-top:10px}
+.note{font-size:13px;color:var(--text2);margin:6px 0 0}
+.sec-sub{font-size:14px;color:var(--text2);margin:-6px 0 12px}
+.link-btn{background:none;border:0;padding:6px 0;font:inherit;font-size:14px;font-weight:600;color:var(--red-t);text-decoration:underline;cursor:pointer}
+.card.mine{border:2px solid var(--green)}
+.row-between{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.list-row{padding:8px 0;border-bottom:1px solid var(--line)}
+.list-row:last-child{border-bottom:0}
+.pill{display:inline-flex;align-items:center;padding:0 9px;border-radius:999px;font-weight:600;font-size:13px;border:1px solid;vertical-align:middle}
+.pill.blue{background:var(--blue-l);color:var(--blue-t);border-color:var(--blue-b)}
+.pill.green{background:var(--green-l);color:var(--green-t);border-color:var(--green-b)}
+.pill.red{background:var(--red-l);color:var(--red-t);border-color:var(--red-b)}
+.pill.gray{background:var(--gray-l);color:var(--gray-t);border-color:var(--line)}
+.badge-neck{display:inline-flex;background:var(--amber-l);color:var(--amber-t);border:1px solid var(--amber-b);border-radius:999px;padding:0 9px;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:middle}
+
+/* topbar (navy) */
+#topbar{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;border-bottom:1px solid #0a1430;box-shadow:0 2px 10px rgba(15,27,61,.18)}
+.topbar-in{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding-top:8px;padding-bottom:8px}
+.brand{font-weight:700;font-size:16px;color:#fff;background:none;border:0;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;min-height:40px}
+.brand .dot{width:28px;height:28px;border-radius:8px;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--navy);display:grid;place-items:center;font-size:14px;font-weight:700}
+.whoami{margin-left:auto;font-size:14px;color:#aab4d4}
+.whoami b{color:#fff}
+.whoami .pts{color:var(--gold2);font-size:15px}
+.whoami .badge-neck{background:rgba(240,198,74,.15);border-color:rgba(240,198,74,.4);color:var(--gold2)}
+.topbar-in .btn{min-height:38px;font-size:14px;padding:4px 12px}
+.topbar-in .btn-outline{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.22)}
+.topbar-in .btn-outline:hover{background:rgba(255,255,255,.16)}
+.topbar-in .btn-primary{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--navy);box-shadow:none}
+.strip.red{flex-basis:100%;background:var(--red-l);border:1px solid var(--red-b);color:var(--red-t);border-radius:10px;padding:6px 12px;font-weight:600;font-size:14px}
+pre.code{white-space:pre-wrap;font-size:14px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0 0}
+.code-input{width:100%;font:14px/1.5 ui-monospace,Menlo,monospace;padding:12px;border:1px solid var(--line2);border-radius:10px}
+.top-actions{display:flex;gap:8px}
+@media (max-width:560px){.whoami{flex-basis:100%;margin-left:0;order:3}.top-actions{margin-left:auto}.brand.has-back{display:none}.top-actions .btn{flex:1}}
+@media (max-width:560px){.brand.has-back ~ .top-actions{flex:1}}
+
+/* items */
+.item{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:start}
+.item-row{display:grid;grid-template-columns:48px 1fr;gap:10px 12px;align-items:start}
+.item-action{grid-column:1/-1}
+@media (min-width:640px){.item-row{grid-template-columns:48px 1fr 190px;align-items:center}.item-action{grid-column:auto}}
+.icon{width:48px;height:48px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;color:var(--text2)}
+.icon img{width:36px;height:36px;object-fit:contain;image-rendering:pixelated}
+.icon.sm{width:40px;height:40px;border-radius:9px}.icon.sm img{width:30px;height:30px}
+.item-name{font-size:16px;font-weight:700;line-height:1.35}
+.item-type{font-size:14px;color:var(--text2)}
+.price{display:inline-flex;align-items:baseline;gap:4px;font-size:13px;font-weight:700;color:var(--amber-t);background:var(--amber-l);border:1px solid var(--amber-b);border-radius:999px;padding:0 10px;margin-top:4px}
+.winner{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;background:var(--green-l);border:1px solid var(--green-b);border-radius:10px;padding:8px 12px;font-size:15px}
+.winner span{color:var(--green-t);font-weight:600}
+.winner b{font-size:18px;color:var(--green-t)}
+.order{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:5px}
+.order li{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:6px 10px}
+.order .rank{font-weight:700;min-width:22px;color:var(--text2);font-variant-numeric:tabular-nums}
+.order li.first{background:var(--green-l);border-color:var(--green-b);font-weight:700}
+.order li.first .rank{color:var(--green)}
+
+.seg{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 12px;background:var(--gray-l);padding:4px;border-radius:12px}
+.seg .btn{flex:1 1 130px;min-height:40px;box-shadow:none}
+.seg .btn-off{background:transparent;border-color:transparent}
+.seg .btn-chosen{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:var(--shadow)}
+input[type=text],input[type=number],input[type=search],select{font:inherit;font-size:16px;min-height:44px;width:100%;padding:6px 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;color:var(--text);box-shadow:var(--shadow-sm)}
+input:focus,select:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px rgba(30,58,138,.18)}
+label.big-label{display:block;font-size:14px;font-weight:600;margin:0 0 5px;color:var(--text)}
+main.wrap.wide{max-width:1040px}
+.pin-input{font-size:28px !important;letter-spacing:14px;text-align:center;max-width:200px;font-weight:700;font-variant-numeric:tabular-nums}
+.pin-mask{-webkit-text-security:disc}
+.err{color:var(--red-t);font-weight:600;font-size:15px;margin-top:8px}
+
+.name-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.name-btn{flex-direction:column;align-items:flex-start;min-height:54px;gap:0;text-align:left;padding:8px 14px;background:#fff;color:var(--text);border-color:var(--line2)}
+.name-btn:hover{border-color:var(--gold);background:var(--amber-l)}
+.name-btn small{font-size:13px;font-weight:500;color:var(--text2)}
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:12px 16px;font:inherit;color:var(--text);cursor:pointer;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s;min-height:44px}
+.tile:hover{box-shadow:var(--shadow);border-color:var(--blue-b);border-left-color:var(--gold)}
+.tile-title{font-size:16px;font-weight:700;color:var(--navy)}
+.tile-desc{font-size:14px;color:var(--text2)}
+.hero-actions{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:640px){.hero-actions{grid-template-columns:1fr 1fr}}
+
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tbl th,.tbl td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl th{background:var(--navy);font-size:13px;font-weight:600;color:#dfe5f5}
+.tbl td.num,.tbl th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl tr.me td{background:var(--amber-l)}
+.big-num{font-size:18px;font-weight:700;color:var(--blue-t);font-variant-numeric:tabular-nums}
+.up{color:var(--green);font-weight:700}.down{color:var(--red-t);font-weight:700}
+.table-scroll{overflow-x:auto}
+.stat{text-align:center;background:linear-gradient(160deg,var(--navy),var(--navy2));border:0;color:#fff}
+.stat .muted{color:#aab4d4}
+.stat-num{font-size:44px;font-weight:700;color:var(--gold2);line-height:1.1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+.stepper{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.stepper .btn{min-width:44px;padding:0;font-size:20px}
+.stepper .val{min-width:90px;text-align:center;font-size:16px;font-weight:700}
+.sticky-save{position:sticky;bottom:0;background:rgba(244,246,251,.92);backdrop-filter:blur(6px);padding:10px 0;border-top:1px solid var(--line)}
+.price-input{width:110px}
+
+.rules ol{padding-left:22px;font-size:15px;margin:0}.rules li{margin-bottom:8px}.rules li:last-child{margin-bottom:0}
+
+/* party groups */
+.groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));align-items:start;margin-bottom:12px}
+.groups .card{margin:0}
+.cards-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));align-items:start;margin-bottom:12px}
+.cards-grid>.card{margin:0}
+.cards-grid .item-row{grid-template-columns:48px 1fr}
+.cards-grid .item-action{grid-column:1/-1}
+@media (max-width:420px){.cards-grid{grid-template-columns:1fr}}
+.group{padding:12px 14px}
+.add-tile{display:flex;align-items:center;justify-content:center;min-height:120px;border:2px dashed #9fb0dc;border-radius:14px;background:transparent;color:var(--blue-t);font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.add-tile:hover{background:#fff;border-color:var(--blue)}
+.group-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:-12px -14px 4px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--line);border-radius:14px 14px 0 0}
+.group-head b{font-size:15px;color:var(--navy)}
+.group-head .muted{font-size:13px}
+.mem{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:7px 0;border-top:1px solid var(--line);font-size:15px}
+.group-head+.mem{border-top:0}
+.mem-act{justify-content:flex-end}
+.mem .btn-sm{min-height:30px;padding:2px 10px;font-size:12px;border-width:1px;box-shadow:none;border-radius:8px}
+.mem.me{background:var(--blue-l);margin:0 -14px;padding:7px 14px}
+.mem .muted{font-size:13px}
+.mem-pts{font-weight:700;color:var(--blue-t);text-align:right;font-variant-numeric:tabular-nums}
+.mem-pts small{font-weight:500;color:var(--text2);font-size:12px}
+.mem-bk,.mem-act{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:12px;padding:0 9px;border-radius:999px;background:var(--amber-l);color:var(--amber-t);border:1px solid var(--amber-b)}
+.slot{border:1px dashed var(--line2);border-radius:9px;padding:5px;text-align:center;color:var(--text2);font-size:13px;margin-top:6px}
+
+.lock-banner{display:flex;gap:12px;align-items:center;background:var(--navy);color:#fff;border-radius:14px;padding:12px 16px;margin:0 0 12px;font-size:22px;border-left:5px solid var(--gold)}
+.lock-banner b{font-size:16px;color:var(--gold2)}
+.lock-banner div div{font-size:13px;color:#c9d1ea}
+.lock-pop{font-size:44px;text-align:center;line-height:1}
+
+/* toast */
+#toast{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:100;width:min(94vw,520px);display:none}
+#toast.show{display:block}
+#toast .t{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 10px 10px 16px;border-radius:12px;font-size:15px;font-weight:600;background:#fff;border:1px solid var(--line);box-shadow:0 10px 25px rgba(15,27,61,.18)}
+#toast .t.ok{border-left:6px solid var(--green);color:var(--green-t)}
+#toast .t.err{border-left:6px solid var(--red);color:var(--red-t)}
+#toast .t .btn{min-height:36px;font-size:14px;padding:4px 12px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(15,27,61,.55);backdrop-filter:blur(2px);z-index:50;display:flex;align-items:center;justify-content:center;padding:12px}
+.modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:92vh;overflow:auto;padding:20px;box-shadow:0 20px 50px rgba(15,27,61,.35);border-top:4px solid var(--gold)}
+.modal h2{margin-top:0}
+.modal-body{font-size:15px;margin-bottom:16px;color:var(--text)}
+.reel{border:1px solid #2a3a6e;border-radius:12px;height:64px;display:grid;place-items:center;font-size:22px;font-weight:700;background:var(--navy);color:var(--gold2);margin:10px 0}
+.reel.done{border-color:var(--green-b);background:var(--green-l);color:var(--green-t)}
+
+/* demo panel */
+#demo{margin-top:40px;background:var(--amber-l);border-top:1px dashed var(--gold);padding:6px 0 32px}
+#demo h2{margin-top:14px;color:var(--amber-t)}
+#demo .card{border-color:var(--amber-b);box-shadow:none}
+</style>
+</head>
+<body>
+<div id="toast" role="status" aria-live="assertive"></div>
+<header id="topbar"></header>
+<main id="app" class="wrap"><p class="lead mt2">กำลังโหลด…</p></main>
+<section id="demo"></section>
+<div id="modal-root"></div>
+<noscript>ต้องเปิด JavaScript ถึงจะใช้งานได้</noscript>
+
+<script>
+'use strict';
+/* =====================================================================
+   1) CONFIG — item data, jobs, default prices
+   ===================================================================== */
+const NECK = 1122000;           // Horntail Necklace (untradeable)
+const MAGES = ['F/P Arch Mage', 'I/L Arch Mage', 'Bishop'];
+const JOBS = ['Hero', 'Paladin', 'Dark Knight', 'F/P Arch Mage', 'I/L Arch Mage', 'Bishop', 'Bowmaster', 'Marksman', 'Night Lord', 'Shadower', 'Buccaneer', 'Corsair', 'Aran'];
+
+// Default prices per category (edit here, or per item in Firebase console → prices/<itemId>)
+const DEFAULT_PRICE_BY_CAT = { necklace: 2, book: 5, ring: 15, weapon: 1, other: 1 };
+// weapon required level (maplestory.io gms/83, 176 as fallback; checked 19 Nov 2026)
+const WEAPON_LV = {
+  1092049: 120, 1302056: 100, 1302059: 110, 1312030: 100, 1312031: 110, 1322045: 100, 1322052: 110, 1332049: 110, 1332050: 110,
+  1332051: 100, 1332052: 100, 1372010: 98, 1372032: 108, 1382035: 95, 1382036: 110, 1402035: 100, 1402036: 110, 1412021: 100,
+  1412026: 110, 1422027: 100, 1422028: 110, 1432030: 100, 1432038: 110, 1442044: 100, 1442045: 110, 1452019: 100, 1452020: 100,
+  1452021: 100, 1452044: 110, 1462015: 100, 1462016: 100, 1462017: 100, 1462039: 110, 1472051: 110, 1472052: 110, 1472053: 100,
+  1482012: 100, 1482013: 110, 1492012: 100, 1492013: 110,
+};
+// agreed prices: ring 15 · chair 15 · books 5 · lv100 weapons 1 · lv110 (Dragon set, lv 105+) 3 · necklace 2 · gacha 1 (= 2 tickets)
+const PRICE_BY_ID = { 3010128: 15 };
+function defaultPrice(id) {
+  const it = itemOf(id);
+  if (PRICE_BY_ID[id] != null) return PRICE_BY_ID[id];
+  if (it.cat === 'weapon') return (WEAPON_LV[id] || 100) >= 105 ? 3 : 1;
+  return DEFAULT_PRICE_BY_CAT[it.cat];
+}
+
+// Horntail (mob 8810018) drop table — source: oldschoolmaplegame.com pageProps.drops (potions, scrolls and monster card removed on request)
+const DROPS = [
+  [1092049, 'Dragon Khanjar'], [1113149, 'Silver Blossom Ring'], [1122000, 'Horntail Necklace'],
+  [1302056, 'Sparta'], [1302059, 'Dragon Carabella'], [1312030, 'Tomahawk'], [1312031, 'Dragon Axe'],
+  [1322045, 'Battle Hammer'], [1322052, 'Dragon Mace'], [1332049, 'Dragon Kanzir'], [1332050, 'Dragon Kreda'],
+  [1332051, 'Gold Double Knife'], [1332052, 'Blood Dagger'], [1372010, 'Dimon Wand'], [1372032, 'Dragon Wand'],
+  [1382035, 'Blue Marine'], [1382036, 'Dragon Staff'], [1402035, 'The Beheader'], [1402036, 'Dragon Claymore'],
+  [1412021, 'Tavar'], [1412026, 'Dragon Battle Axe'], [1422027, 'Golden Smith Hammer'], [1422028, 'Dragon Flame'],
+  [1432030, 'Pinaka'], [1432038, 'Dragon Faltizan'], [1442044, 'Zedbug'], [1442045, 'Dragon Chelbird'],
+  [1452019, 'White Nisrock'], [1452020, 'Golden Nisrock'], [1452021, 'Dark Nisrock'], [1452044, 'Dragon Shiner Bow'],
+  [1462015, 'White Neschere'], [1462016, 'Golden Neschere'], [1462017, 'Dark Neschere'], [1462039, 'Dragon Shiner Cross'],
+  [1472051, 'Dragon Green Sleeve'], [1472052, 'Dragon Purple Sleeve'], [1472053, 'Red Craven'],
+  [1482012, 'King Cent'], [1482013, 'Dragon Slash Claw'], [1492012, 'Concerto'], [1492013, 'Dragonfire Revolver'],
+  [2290017, '[Mastery Book] Enrage 30'], [2290021, "[Mastery Book] Heaven's Hammer 30"], [2290023, '[Mastery Book] Berserk 30'],
+  [2290041, '[Mastery Book] Meteor Shower 30'], [2290047, '[Mastery Book] Blizzard 30'], [2290049, '[Mastery Book] Genesis 30'],
+  [2290065, '[Mastery Book] Concentrate 30'], [2290075, '[Mastery Book] Snipe 30'], [2290081, '[Mastery Book] Taunt 30'],
+  [2290085, '[Mastery Book] Triple Throw 30'], [2290095, '[Mastery Book] Smokescreen 30'], [2290096, '[Mastery Book] Maple Warrior 20'],
+  [2290111, '[Mastery Book] Time Leap 30'], [2290113, '[Mastery Book] Elemental Boost 30'], [2290116, '[Mastery Book] Air Strike 30'],
+  [2298000, '[Mastery Book] Combat Orders 20'], [3010128, 'Horntail Chair'], [5229000, 'Premium Gachapon Ticket'],
+];
+// Skill book -> jobs (null = every job)
+const BOOK_JOBS = {
+  2290017: ['Hero'], 2290021: ['Paladin'], 2290023: ['Dark Knight'], 2290041: ['F/P Arch Mage'], 2290047: ['I/L Arch Mage'],
+  2290049: ['Bishop'], 2290065: ['Bowmaster'], 2290075: ['Marksman'], 2290081: ['Night Lord', 'Shadower'], 2290085: ['Night Lord'],
+  2290095: ['Shadower'], 2290096: null, 2290111: ['Buccaneer'], 2290113: ['Corsair'], 2290116: ['Corsair'], 2298000: ['Aran'],
+};
+// Weapon id prefix (id / 10000) -> [Thai label, jobs]
+const WEAPONS = {
+  130: ['ดาบมือเดียว', ['Hero', 'Paladin']], 131: ['ขวานมือเดียว', ['Hero']], 132: ['ค้อนมือเดียว', ['Paladin']],
+  133: ['มีดสั้น (dagger)', ['Shadower']], 137: ['คทา (wand)', MAGES], 138: ['ไม้เท้า (staff)', MAGES],
+  140: ['ดาบสองมือ', ['Hero', 'Paladin']], 141: ['ขวานสองมือ', ['Hero']], 142: ['ค้อนสองมือ', ['Paladin']],
+  143: ['หอก (spear)', ['Dark Knight']], 144: ['ทวน (polearm)', ['Dark Knight', 'Aran']], 145: ['ธนู', ['Bowmaster']],
+  146: ['หน้าไม้', ['Marksman']], 147: ['ถุงมือดาวกระจาย (claw)', ['Night Lord']], 148: ['สนับมือ (knuckle)', ['Buccaneer']], 149: ['ปืน', ['Corsair']],
+};
+const CAT_LABEL = { necklace: 'สร้อย / แหวน', ring: 'สร้อย / แหวน', book: 'สกิลบุ๊ค', weapon: 'อาวุธ', other: 'อื่นๆ (ของสะสม)' };
+const CAT_ORDER = ['necklace', 'ring', 'book', 'weapon', 'other'];
+
+function buildItem([id, name]) {
+  const it = { id, name, cat: 'other', type: '', jobs: null };
+  if (id === NECK) { it.cat = 'necklace'; it.type = 'สร้อยคอ · เทรดไม่ได้'; it.short = 'สร้อยฮอล'; it.name = 'Horntail Necklace (สร้อยฮอล)'; }
+  else if (id === 1113149) { it.cat = 'ring'; it.type = 'แหวน'; }
+  else if (id in BOOK_JOBS) { it.cat = 'book'; it.type = 'สกิลบุ๊ค'; it.jobs = BOOK_JOBS[id]; }
+  else if (id === 1092049) { it.cat = 'weapon'; it.type = 'โล่มีด (Shadower)'; it.jobs = ['Shadower']; }
+  else if (WEAPONS[Math.floor(id / 10000)]) { const w = WEAPONS[Math.floor(id / 10000)]; it.cat = 'weapon'; it.type = w[0]; it.jobs = w[1]; }
+  if (it.cat === 'weapon' && WEAPON_LV[id]) it.type += ` · Lv ${WEAPON_LV[id]}`;
+  else if (id === 3010128) it.type = 'เก้าอี้';
+  else if (id === 5229000) { it.type = 'ตั๋วกาชา (Cash) · แลก 1 ครั้ง ได้ 2 ใบ'; it.short = 'Premium Gachapon Ticket (2 ใบ)'; }
+  return it;
+}
+const ITEMS = DROPS.map(buildItem);
+const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+/** safe lookup — an id no longer in DROPS (e.g. old data still in the DB) gets a placeholder instead of crashing */
+const itemOf = id => ITEM[id] || { id: Number(id), name: `ของรหัส ${id} (ไม่อยู่ในรายการแล้ว)`, cat: 'other', type: '', jobs: null };
+// icons not on maplestory.io → embedded images (supplied by the user)
+const CUSTOM_ICONS = {
+  5229000: 'data:image/png;base64,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',   // Premium Gachapon Ticket
+};
+const iconUrl = id => CUSTOM_ICONS[id] || `https://maplestory.io/api/gms/83/item/${id}/icon`;
+const thName = id => { const n = shortName(id); return /^[\u0E00-\u0E7F]/.test(n) ? n : ` ${n} `; }; // spacing in Thai sentences
+const shortName = id => (itemOf(id) && (itemOf(id).short || itemOf(id).name)) || ('#' + id);
+
+/* =====================================================================
+   2) BACKEND ADAPTER — the only place that touches storage.
+      Phase 2 replaces createLocalBackend() with a Firebase version that
+      exposes the same 3 methods: subscribe / transaction / set.
+   ===================================================================== */
+class UErr extends Error {}   // user-facing error (message shown as-is)
+const clone = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+const splitPath = p => String(p || '').split('/').filter(Boolean);
+function getAt(root, path) { let o = root; for (const k of splitPath(path)) { if (o == null) return undefined; o = o[k]; } return o; }
+function setAt(root, path, val) {
+  const ks = splitPath(path); if (!ks.length) return val;
+  root = root || {}; let o = root;
+  ks.slice(0, -1).forEach(k => { if (o[k] == null || typeof o[k] !== 'object') o[k] = {}; o = o[k]; });
+  if (val === null || val === undefined) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = val;
+  return root;
+}
+
+function createLocalBackend(key) {
+  const subs = new Set();
+  const read = () => { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } };
+  const write = v => { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { console.error(e); } emit(); };
+  const emit = () => { const snap = read(); subs.forEach(fn => fn(clone(snap))); };
+  // other tabs → realtime in demo (mirrors Firebase onValue)
+  window.addEventListener('storage', e => { if (e.key === key) emit(); });
+  return {
+    /** cb(rootSnapshot) on every change; returns unsubscribe */
+    subscribe(cb) { subs.add(cb); cb(clone(read())); return () => subs.delete(cb); },
+    /** atomic read-modify-write at path; fn returns new value, or throws to abort */
+    async transaction(path, fn) {
+      const root = read() || {};
+      const next = fn(clone(getAt(root, path)));
+      if (next === undefined) return { committed: false };
+      write(setAt(root, path, next));
+      return { committed: true, value: next };
+    },
+    async set(path, val) { write(setAt(read() || {}, path, val)); },
+  };
+}
+/* ---- Firebase Realtime Database backend (same 3 methods) ---- */
+const FIREBASE_SDK = '13.3.0';
+async function createFirebaseBackend(config, onConn) {
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK}`;
+  const [{ initializeApp }, { getAuth, signInAnonymously }, { getDatabase, ref, onValue, runTransaction, set }] =
+    await Promise.all([import(`${base}/firebase-app.js`), import(`${base}/firebase-auth.js`), import(`${base}/firebase-database.js`)]);
+  const app = initializeApp(config);
+  await signInAnonymously(getAuth(app));          // rules require auth != null
+  const db = getDatabase(app);
+  onValue(ref(db, '.info/connected'), s => onConn(!!s.val()));
+  const clean = v => (v === undefined ? null : JSON.parse(JSON.stringify(v)));   // RTDB rejects undefined
+  return {
+    subscribe(cb, onErr) { return onValue(ref(db, '/'), snap => cb(snap.val()), onErr); },
+    async transaction(path, fn) {
+      let userErr = null;
+      const res = await runTransaction(ref(db, path || '/'), cur => {
+        userErr = null;
+        try { const next = fn(clone(cur)); return next === undefined ? undefined : clean(next); }
+        catch (e) {
+          userErr = e;
+          // RTDB may call first with a stale/empty local value; returning null for an empty node
+          // forces a server round-trip and a retry with real data (no-op if it really is empty).
+          return cur === null ? null : undefined;
+        }
+      });
+      if (userErr) throw userErr;
+      return { committed: res.committed, value: res.snapshot.val() };
+    },
+    async set(path, val) { await set(ref(db, path || '/'), clean(val)); },
+  };
+}
+
+/* ---- MODE: paste the config from Firebase console here (see FIREBASE-SETUP.md).
+        null = local demo mode (localStorage + mock data + demo panel). ---- */
+const FIREBASE_CONFIG = {   // public web config (not a secret — data is protected by database.rules.json)
+  apiKey: 'AIzaSyA813P85U5iY-paSz-OqnlDyr17oVCmDMM',
+  authDomain: 'horntail-63be7.firebaseapp.com',
+  databaseURL: 'https://horntail-63be7-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'horntail-63be7',
+  storageBucket: 'horntail-63be7.firebasestorage.app',
+  messagingSenderId: '1004135304421',
+  appId: '1:1004135304421:web:6a30c2ef3dc2884d0e580c',
+};
+const IS_DEMO = !FIREBASE_CONFIG;
+// v2 = 'most points wins' rules; older demo data is dropped
+if (IS_DEMO) { try { localStorage.removeItem('htloot-demo-v1'); } catch (e) {} }
+let backend = IS_DEMO ? createLocalBackend('htloot-demo-v2') : null;
+
+/* =====================================================================
+   3) DOMAIN RULES — pure functions, shared by UI and API
+   ===================================================================== */
+const vals = o => (o ? Object.values(o) : []);
+const keys = o => (o ? Object.keys(o) : []);
+function rand() { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; }
+function hashPin(mid, pin) { // demo-grade only (not real security)
+  let h = 2166136261; const s = 'htloot|' + mid + '|' + pin;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(16);
+}
+const priceIn = (db, id) => { const p = db.prices && db.prices[id]; return p != null ? Number(p) : defaultPrice(id); };
+const jobOk = (item, job) => !item.jobs || item.jobs.includes(job);
+const MAX_BOOK = 3;   // bookings per member per party (total price ≤ points)
+const GROUP_SIZE = 6, MAX_GROUPS = 5;   // in-game parties inside one run (loot/points are shared by the whole run)
+const groupOf = (p, mid) => (p.slots && p.slots[mid]) || 1;
+const groupMembers = (p, g) => keys(p.members).filter(id => groupOf(p, id) === g).sort((a, b) => p.members[a] - p.members[b]);
+const groupCount = p => p.groupCount || 1;
+/** first group with a free seat, or 0 when every group is full */
+function freeGroup(p) { for (let g = 1; g <= groupCount(p); g++) if (groupMembers(p, g).length < GROUP_SIZE) return g; return 0; }
+
+/** can member reserve/request this item? (job + points) → {ok, reason} */
+function eligibility(db, member, itemId) {
+  const item = itemOf(itemId), price = priceIn(db, itemId);
+  if (!jobOk(item, member.job)) return { ok: false, reason: 'อาชีพนี้จองไม่ได้' };
+  if (member.points < price) return { ok: false, reason: `แต้มไม่พอ (ขาดอีก ${price - member.points})` };
+  return { ok: true, reason: 'แต้มพอ' };
+}
+/** party bookings: p.bookings[mid] = { [itemId]: bookedAt } */
+const myBookings = (p, mid) => { const b = p.bookings && p.bookings[mid]; return b ? keys(b).map(Number).sort((x, y) => b[x] - b[y]) : []; };
+const bookedTotal = (db, p, mid) => myBookings(p, mid).reduce((s, id) => s + priceIn(db, id), 0);
+const bookersOf = (p, itemId) => keys(p.bookings).filter(m => p.bookings[m] && p.bookings[m][itemId] != null).sort((a, b) => p.bookings[a][itemId] - p.bookings[b][itemId]);
+const bookedItemIds = p => [...new Set(vals(p.bookings).flatMap(b => keys(b).map(Number)))];
+const bookingCount = p => vals(p.bookings).reduce((n, b) => n + keys(b).length, 0);
+/** can member book this item in this party? max 3 items, total price ≤ points */
+function canBook(db, p, member, itemId) {
+  const e = eligibility(db, member, itemId); if (!e.ok) return e;
+  const mine = myBookings(p, member.id);
+  if (mine.includes(Number(itemId))) return { ok: false, reason: 'จองชิ้นนี้แล้ว' };
+  if (mine.length >= MAX_BOOK) return { ok: false, reason: `จองครบ ${MAX_BOOK} ชิ้นแล้ว` };
+  const total = bookedTotal(db, p, member.id) + priceIn(db, itemId);
+  if (total > member.points) return { ok: false, reason: `แต้มไม่พอ (จองรวม ${total} แต้ม แต่มี ${member.points})` };
+  if (p.locked) return { ok: false, reason: 'ปิดจองแล้ว (ลงบอสแล้ว)' };
+  return { ok: true, reason: 'แต้มพอ' };
+}
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const byPts = (a, b) => b.pts - a.pts;
+/** most points wins → {id, viaRoll?} · equal points with no roll yet → {tie:[ids]} · nobody → null
+ *  tieOrders: earlier tie rolls for this item ([ids] each); one that covers the tied group decides */
+function pickTop(cands, tieOrders) {
+  if (!cands.length) return null;
+  const max = Math.max(...cands.map(x => x.pts)), top = cands.filter(x => x.pts === max).map(x => x.id);
+  if (top.length === 1) return { id: top[0] };
+  const o = tieOrders.find(order => top.every(id => order.includes(id)));
+  return o ? { id: o.find(id => top.includes(id)), viaRoll: true } : { tie: top.sort() };
+}
+const tieOrdersOf = (rolls, itemId) => vals(rolls).filter(r => Number(r.itemId) === Number(itemId)).sort((a, b) => a.at - b.at).map(r => r.order);
+/** sort by points (high first); equal points → random. → {order, ties} */
+function rankWithTies(ids, ptsOf) {
+  const groups = {}; ids.forEach(id => { (groups[ptsOf(id)] = groups[ptsOf(id)] || []).push(id); });
+  const order = []; let ties = false;
+  keys(groups).map(Number).sort((a, b) => b - a).forEach(k => { if (groups[k].length > 1) ties = true; order.push(...shuffle(groups[k])); });
+  return { order, ties };
+}
+/** necklace pick-up order: fixed before the boss, the lone booker, or null (opener must order it) */
+function neckOrderOf(p) { if (p.neckOrder) return p.neckOrder.order; const b = bookersOf(p, NECK); return b.length === 1 ? b : (b.length ? null : []); }
+/** vault: requesters ranked by points (ok = can still pay) and who gets it now */
+const vaultRank = (db, v) => keys(v.requests).filter(id => db.members[id]).map(id => ({ id, pts: db.members[id].points, ok: eligibility(db, db.members[id], v.itemId).ok })).sort(byPts);
+const vaultTop = (db, v) => pickTop(vaultRank(db, v).filter(x => x.ok), tieOrdersOf(v.rolls, v.itemId));
+const newId = (prefix, n = 4) => { const c = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < n; i++) s += c[Math.floor(rand() * c.length)]; return prefix + s; };
+/** party id = party-YYYYMMDD-N (N = round of that local day) */
+const ymd = ts => { const d = new Date(ts); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; };
+const partyIdOf = (ts, n) => `party-${ymd(ts)}-${n}`;
+/** "ตี้ 17 พ.ย. 69 · รอบที่ 2" (falls back to raw id for old-format ids) */
+function partyName(pid) {
+  const m = /^party-(\d{4})(\d{2})(\d{2})-(\d+)$/.exec(pid || '');
+  if (!m) return `ตี้ #${pid}`;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return `ตี้ ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} · รอบที่ ${m[4]}`;
+}
+const addLog = (root, entry) => { root.log = root.log || {}; const id = newId('l', 8); root.log[id] = { id, at: Date.now(), ...entry }; };
+
+/* =====================================================================
+   4) API — every write goes through here (UI never writes directly)
+      No admin role: the party opener runs their party (start, rolls,
+      result) and the vault rolls/hand-overs from their party page.
+   ===================================================================== */
+const ownerCheck = (p, actorId) => { if (!p) throw new UErr('ไม่พบตี้นี้'); if (p.createdBy !== actorId) throw new UErr('คนเปิดตี้เท่านั้นที่กดได้'); };
+const Api = {
+  async resetDemo() { await backend.set('', seedData()); },
+
+  async setPin(mid, pin) {
+    await backend.transaction(`members/${mid}`, m => {
+      if (!m) throw new UErr('ไม่พบชื่อนี้'); if (m.pinHash) throw new UErr('ชื่อนี้ตั้ง PIN ไว้แล้ว');
+      m.pinHash = hashPin(mid, pin); return m;
+    });
+  },
+
+  async createParty(mid) {
+    let id;
+    await backend.transaction('parties', all => {   // atomic: two people opening at once get round N and N+1
+      all = all || {}; const now = Date.now(); let n = 1;
+      while (all[partyIdOf(now, n)]) n++;
+      id = partyIdOf(now, n);
+      all[id] = { id, createdAt: now, createdBy: mid, status: 'open', members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1 };
+      return all;
+    });
+    return id;
+  },
+
+  /** g = which in-game party (0 = first one with a free seat) */
+  async join(pid, mid, g = 0) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!p) throw new UErr('ไม่พบตี้นี้');
+      if (p.status !== 'open') throw new UErr('ตี้นี้เริ่มไปแล้ว เข้าไม่ได้');
+      p.members = p.members || {}; p.slots = p.slots || {};
+      if (p.members[mid]) throw new UErr('คุณอยู่ในตี้นี้แล้ว');
+      g = g || freeGroup(p);
+      if (!g) throw new UErr('ทุกปาร์ตี้เต็มแล้ว รอคนเปิดตี้เพิ่มปาร์ตี้');
+      if (g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
+      if (groupMembers(p, g).length >= GROUP_SIZE) throw new UErr(`ปาร์ตี้ ${g} เต็มแล้ว`);
+      p.members[mid] = Date.now(); p.slots[mid] = g; return p;
+    });
+  },
+
+  /** move to another in-game party: yourself before start, the opener any time before the result */
+  async move(pid, mid, g, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!p || !p.members || !p.members[mid]) throw new UErr('ไม่พบคนนี้ในตี้');
+      const isOwner = p.createdBy === actorId;
+      if (p.status === 'open') { if (actorId !== mid && !isOwner) throw new UErr('ย้ายได้แค่ตัวเอง'); }
+      else if (p.status === 'started') { if (!isOwner) throw new UErr('ตี้เริ่มแล้ว คนเปิดตี้เท่านั้นที่ย้ายคนได้'); }
+      else throw new UErr('ตี้นี้จบแล้ว');
+      if (g < 1 || g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
+      if (groupOf(p, mid) === g) return p;
+      if (groupMembers(p, g).length >= GROUP_SIZE) throw new UErr(`ปาร์ตี้ ${g} เต็มแล้ว`);
+      p.slots = p.slots || {}; p.slots[mid] = g; return p;
+    });
+  },
+  async addGroup(pid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      ownerCheck(p, actorId);
+      if (p.status !== 'open' && p.status !== 'started') throw new UErr('ตี้นี้จบแล้ว');
+      if (groupCount(p) >= MAX_GROUPS) throw new UErr(`มีได้สูงสุด ${MAX_GROUPS} ปาร์ตี้`);
+      p.groupCount = groupCount(p) + 1; return p;
+    });
+  },
+  /** only the last party, and only when it's empty */
+  async removeGroup(pid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      ownerCheck(p, actorId);
+      const n = groupCount(p);
+      if (n <= 1) throw new UErr('ต้องมีอย่างน้อย 1 ปาร์ตี้');
+      if (groupMembers(p, n).length) throw new UErr(`ปาร์ตี้ ${n} ยังมีคนอยู่ ย้ายออกก่อน`);
+      p.groupCount = n - 1; return p;
+    });
+  },
+
+  async leave(pid, mid) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!p || p.status !== 'open') throw new UErr('ตี้เริ่มแล้ว ออกไม่ได้');
+      if (p.createdBy === mid) throw new UErr('คนเปิดตี้ออกไม่ได้');
+      delete p.members[mid]; if (p.slots) delete p.slots[mid]; return p;
+    });
+  },
+
+  /** lock the member list (vault is NOT rolled here any more) */
+  async start(pid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      ownerCheck(p, actorId);
+      if (p.status !== 'open') throw new UErr('ตี้นี้เริ่มไปแล้ว');
+      p.status = 'started'; p.startedAt = Date.now();
+      return p;
+    });
+  },
+
+  /** opener cancels a party that hasn't been recorded yet → nobody gets points, bookings are dropped */
+  async cancel(pid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      ownerCheck(p, actorId);
+      if (p.status === 'done') throw new UErr('ตี้นี้บันทึกผลไปแล้ว ยกเลิกไม่ได้');
+      if (p.status === 'cancelled') throw new UErr('ตี้นี้ยกเลิกไปแล้ว');
+      p.status = 'cancelled'; p.cancelledAt = Date.now(); return p;
+    });
+  },
+
+  /** opener removes someone before the party starts */
+  async kick(pid, mid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      ownerCheck(p, actorId);
+      if (p.status !== 'open') throw new UErr('ตี้เริ่มแล้ว เอาคนออกไม่ได้');
+      if (mid === p.createdBy) throw new UErr('เอาคนเปิดตี้ออกไม่ได้');
+      delete p.members[mid]; if (p.slots) delete p.slots[mid]; return p;
+    });
+  },
+
+  async book(pid, mid, itemId) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid], m = root.members[mid];
+      if (!p || p.status !== 'started') throw new UErr('ตอนนี้ยังจองไม่ได้');
+      if (p.locked) throw new UErr('ปิดจองแล้ว (ลงบอสแล้ว)');
+      if (!p.members[mid]) throw new UErr('คุณไม่ได้อยู่ในตี้นี้');
+      const e = canBook(root, p, m, itemId); if (!e.ok) throw new UErr(e.reason);
+      p.bookings = p.bookings || {}; p.bookings[mid] = p.bookings[mid] || {};
+      p.bookings[mid][itemId] = Date.now(); return root;
+    });
+  },
+
+  async unbook(pid, mid, itemId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      const b = p && p.bookings && p.bookings[mid];
+      if (!b || b[itemId] == null) throw new UErr('คุณไม่ได้จองชิ้นนี้');
+      if (p.status !== 'started') throw new UErr('ตี้นี้จบแล้ว');
+      if (p.locked) throw new UErr('ปิดจองแล้ว (ลงบอสแล้ว) ยกเลิกไม่ได้');
+      delete b[itemId]; if (!keys(b).length) delete p.bookings[mid]; return p;
+    });
+  },
+
+  /** "ปิดจอง · ลงบอส": freeze every booking before the boss (nobody can book after seeing a drop)
+   *  and fix the necklace pick-up order by points (equal points → random). */
+  async lock(pid, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid]; ownerCheck(p, actorId);
+      if (p.status !== 'started') throw new UErr('ตี้นี้ปิดจองไม่ได้');
+      if (p.locked) throw new UErr('ปิดจองไปแล้ว');
+      const now = Date.now(); p.locked = { at: now, by: actorId };
+      const ids = bookersOf(p, NECK);
+      if (ids.length) {
+        const pts = Object.fromEntries(ids.map(id => [id, root.members[id] ? root.members[id].points : 0]));
+        const r = rankWithTies(ids, id => pts[id]);
+        p.neckOrder = { order: r.order, points: pts, ties: r.ties, at: now, by: actorId };
+      }
+      return root;
+    });
+  },
+
+  /** equal points at the top of an item → opener rolls once; everyone on the party page sees it */
+  async tieRoll(pid, itemId, pool, pts, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid]; ownerCheck(p, actorId);
+      if (p.status !== 'started') throw new UErr('ตี้นี้สุ่มไม่ได้แล้ว');
+      if (!p.locked) throw new UErr('ต้องปิดจองก่อน');
+      if (pool.length < 2) throw new UErr('ต้องมี 2 คนขึ้นไปถึงจะสุ่ม');
+      const bk = bookersOf(p, itemId); if (!pool.every(id => bk.includes(id))) throw new UErr('มีคนที่ไม่ได้จองชิ้นนี้');
+      if (tieOrdersOf(p.tieRolls, itemId).some(o => pool.every(id => o.includes(id)))) throw new UErr('สุ่มไปแล้ว');
+      p.tieRolls = p.tieRolls || {}; const id = newId('t', 6);
+      p.tieRolls[id] = { id, itemId: Number(itemId), pool: [...pool].sort(), order: shuffle(pool), points: Object.fromEntries(pool.map(m => [m, pts])), at: Date.now(), by: actorId };
+      return root;
+    });
+  },
+
+  async confirmResult(pid, actorId, res) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid]; ownerCheck(p, actorId);
+      if (p.status !== 'started') throw new UErr('ตี้นี้บันทึกผลไปแล้ว');
+      const ids = new Set([...keys(p.members), ...res.awards.map(a => a.memberId)]);
+      const before = {}, after = {};
+      ids.forEach(id => { if (root.members[id]) before[id] = after[id] = root.members[id].points; });
+      res.awards.forEach(a => { if (a.memberId in after) after[a.memberId] -= a.price; });
+      res.finishers.forEach(id => { if (id in after) after[id] += 1; });
+      Object.entries(after).forEach(([id, v]) => { if (v < 0) throw new UErr(`แต้มของ ${root.members[id].name} ไม่พอหัก`); });
+      Object.entries(after).forEach(([id, v]) => { root.members[id].points = v; });
+      res.awards.forEach(a => { if (Number(a.itemId) === NECK && root.members[a.memberId]) root.members[a.memberId].gotNecklace = true; });
+      root.vault = root.vault || {};
+      res.toVault.forEach(itemId => { const id = newId('v', 6); root.vault[id] = { id, itemId: Number(itemId), addedAt: Date.now(), fromParty: pid, status: 'open' }; });
+      p.status = 'done'; p.doneAt = Date.now();
+      p.result = { by: actorId, finishers: res.finishers, awards: res.awards, toVault: res.toVault, pointsBefore: before, pointsAfter: after };
+      return root;
+    });
+  },
+
+  async vaultRequest(vid, mid) {
+    await backend.transaction('', root => {
+      const v = root.vault && root.vault[vid]; if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง');
+      const e = eligibility(root, root.members[mid], v.itemId); if (!e.ok) throw new UErr(e.reason);
+      v.requests = v.requests || {}; v.requests[mid] = Date.now(); return root;
+    });
+  },
+  async vaultCancel(vid, mid) {
+    await backend.transaction(`vault/${vid}`, v => {
+      if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง');
+      if (v.requests) delete v.requests[mid]; return v;
+    });
+  },
+  /** opener of a running party: equal points at the top → roll once */
+  async vaultTieRoll(vid, pid, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid]; ownerCheck(p, actorId);
+      if (p.status !== 'started') throw new UErr('ทำได้ตอนตี้กำลังเล่นเท่านั้น');
+      const v = root.vault && root.vault[vid]; if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง');
+      const top = vaultTop(root, v); if (!top || !top.tie) throw new UErr('ไม่มีคนแต้มเท่ากันแล้ว');
+      v.rolls = v.rolls || {}; const id = newId('t', 6);
+      v.rolls[id] = { id, itemId: v.itemId, pool: top.tie, order: shuffle(top.tie), points: Object.fromEntries(top.tie.map(m => [m, root.members[m].points])), at: Date.now(), by: actorId, partyId: pid };
+      return root;
+    });
+  },
+  /** opener hands the item over in-game, then presses this → points are deducted (must be the top requester) */
+  async vaultDeliver(vid, mid, pid, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties[pid]; ownerCheck(p, actorId);
+      if (p.status !== 'started') throw new UErr('ส่งของได้ตอนตี้กำลังเล่นเท่านั้น');
+      const v = root.vault && root.vault[vid], m = root.members[mid];
+      if (!v || !m) throw new UErr('ไม่พบข้อมูล');
+      const top = vaultTop(root, v);
+      if (!top || top.id !== mid) throw new UErr('ข้อมูลเปลี่ยนแล้ว ลองดูใหม่อีกครั้ง');
+      const price = priceIn(root, v.itemId);
+      addLog(root, { type: 'vault-deliver', by: actorId, partyId: pid, memberId: mid, itemId: v.itemId, price, before: m.points, after: m.points - price, order: vaultRank(root, v).map(x => x.id) });
+      m.points -= price; delete root.vault[vid]; return root;
+    });
+  },
+  /** top requester doesn't want it → drop their request, next in line */
+  async vaultDecline(vid, mid, pid, actorId) {
+    await backend.transaction('', root => {
+      ownerCheck(root.parties[pid], actorId);
+      const v = root.vault && root.vault[vid]; if (!v) throw new UErr('ไม่พบของ');
+      if (v.requests) delete v.requests[mid]; return root;
+    });
+  },
+
+  /** first-time setup: only allowed while the database has no members */
+  async importInitial(list, rounds = []) {
+    await backend.transaction('', root => {
+      if (root && root.members && keys(root.members).length) throw new UErr('มีรายชื่ออยู่แล้ว นำเข้าซ้ำไม่ได้');
+      return buildInitial(list, rounds, Date.now());
+    });
+  },
+  /** self sign-up: starts at 0 points, usable right away */
+  async register({ name, job }) {
+    let id;
+    await backend.transaction('', root => {
+      name = checkName(root, name, null, 'มีชื่อนี้อยู่แล้ว ลองค้นหาชื่อด้านบน');
+      if (!JOBS.includes(job)) throw new UErr('เลือกอาชีพก่อน');
+      id = newId('m', 6);
+      root.members[id] = { id, name, job, points: 0, gotNecklace: false, pinHash: null, selfRegistered: true };
+      addLog(root, { type: 'member-register', by: id, memberId: id, name }); return root;
+    });
+    return id;
+  },
+  /** change your own display name (points/history are keyed by id, so they follow) */
+  async rename(mid, name) {
+    await backend.transaction('', root => {
+      const m = root.members && root.members[mid]; if (!m) throw new UErr('ไม่พบชื่อนี้');
+      const to = checkName(root, name, mid);
+      if (to === m.name) throw new UErr('ชื่อเดิม ไม่ได้เปลี่ยน');
+      addLog(root, { type: 'member-rename', by: mid, memberId: mid, from: m.name, to });
+      m.name = to; return root;
+    });
+  },
+};
+/** first-time data: members, default prices, and past rounds from the old system
+ *  (a round = who came, split into in-game parties; drops not recorded; everyone +1) */
+function buildInitial(list, rounds, now) {
+  const members = {}, prices = {}, parties = {}, idOf = {};
+  list.forEach((x, i) => { const id = 'm' + (i + 1); idOf[x.name.toLowerCase()] = id; members[id] = { id, name: x.name, job: x.job, points: x.points, gotNecklace: x.gotNecklace, pinHash: null }; });
+  ITEMS.forEach(it => { prices[it.id] = defaultPrice(it.id); });
+  rounds.forEach((r, k) => {
+    const [y, mo, d] = r.date.split('-').map(Number), ts = new Date(y, mo - 1, d, 12).getTime() + k;
+    let n = 1; while (parties[partyIdOf(ts, n)]) n++;
+    const pid = partyIdOf(ts, n), mem = {}, slots = {}, before = {}, after = {};
+    r.groups.forEach((g, gi) => g.forEach((name, j) => { const id = idOf[name.toLowerCase()]; mem[id] = ts + gi * 10 + j; slots[id] = gi + 1; }));
+    keys(mem).forEach(id => { before[id] = members[id].points; after[id] = before[id] + 1; members[id].points += 1; });
+    parties[pid] = { id: pid, createdAt: ts, createdBy: '', status: 'done', imported: true, startedAt: ts, doneAt: ts, members: mem, slots, groupCount: r.groups.length,
+      result: { by: '', finishers: keys(mem), awards: [], toVault: [], pointsBefore: before, pointsAfter: after } };
+  });
+  return { version: 1, createdAt: now, members, prices, parties };
+}
+/** normalize + validate a member name; duplicate check ignores `selfId` */
+function checkName(root, name, selfId, dupMsg = 'มีคนใช้ชื่อนี้แล้ว') {
+  name = String(name || '').replace(/\s+/g, ' ').trim();
+  if (!name) throw new UErr('ใส่ชื่อก่อน'); if (name.length > 20) throw new UErr('ชื่อยาวเกิน 20 ตัว');
+  if (vals(root.members).some(m => m.id !== selfId && m.name.replace(/\s+/g, ' ').trim().toLowerCase() === name.toLowerCase())) throw new UErr(dupMsg);
+  return name;
+}
+
+/* =====================================================================
+   5) DEMO SEED DATA (mock — real data comes from the JSON import)
+   ===================================================================== */
+function seedData() {
+  // clean start: only names + points (job kept — booking rules need it); no PINs, badges, parties, vault or history
+  const MOCK = [
+    ['พี่ชู', 'Dark Knight', 12], ['ลุงหนวด', 'Bishop', 18], ['ป้าแดง', 'Night Lord', 25], ['น้าเอก', 'Hero', 7],
+    ['พี่ต้อม', 'Paladin', 3], ['เจ๊หมวย', 'I/L Arch Mage', 20], ['ลุงเปี๊ยก', 'F/P Arch Mage', 9], ['พี่นก', 'Bowmaster', 15],
+    ['น้องเบียร์', 'Marksman', 5], ['พี่โอ๋', 'Shadower', 22], ['ลุงชัย', 'Buccaneer', 11], ['พี่แจ๊ค', 'Corsair', 6],
+    ['น้าโต้ง', 'Aran', 4], ['พี่ปุ้ย', 'Night Lord', 1],
+  ];
+  const members = {};
+  MOCK.forEach(([name, job, points], i) => { const id = 'm' + (i + 1); members[id] = { id, name, job, points, gotNecklace: false, pinHash: null }; });
+  const prices = {}; ITEMS.forEach(it => { prices[it.id] = defaultPrice(it.id); });
+  return { version: 1, members, prices, parties: {}, vault: {}, log: {} };
+}
+
+/* =====================================================================
+   6) UI STATE + HELPERS
+   ===================================================================== */
+let DB = null;
+const UI = {
+  login: null, reg: { name: '', job: '' }, menuOpen: false, regOpen: false, loginSearch: '', filter: 'mine', search: '',
+  boardSearch: '', boardJob: '', drafts: {}, autoLock: {}, renameOpen: false, renameText: '', extraSearch: '', openHist: {},
+  seenRolls: new Set(), loadedAt: Date.now(), rollQueue: [], rolling: false, demoPick: '',
+};
+const ss = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} } };
+const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const meId = () => { const id = ss.get('htloot-me'); return id && DB && DB.members[id] ? id : null; };
+const me = () => (meId() ? DB.members[meId()] : null);
+const nameOf = id => (DB.members[id] ? DB.members[id].name : '(ไม่มีชื่อนี้แล้ว)');
+const price = id => priceIn(DB, id);
+const fmtDate = ts => new Date(ts).toLocaleString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const pct = n => (n >= 99.5 || n < 0.5 ? Math.round(n) : n < 10 ? n.toFixed(1) : Math.round(n)) + '%';
+const sortedMembers = () => vals(DB.members).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+const partyLink = pid => location.href.split('#')[0] + '#' + pid;
+const neckBadge = () => '';   // badge removed on request (gotNecklace still stored)
+// some OSM drops (Silver Blossom Ring, Combat Orders, Horntail Chair) aren't in v83 data → fall back to v176, then "?"
+function iconFail(img) {
+  if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = img.src.replace('/gms/83/', '/gms/176/'); return; }
+  img.replaceWith(Object.assign(document.createElement('span'), { textContent: '?' }));
+}
+const iconHtml = (id, sm) => `<div class="icon${sm ? ' sm' : ''}"><img src="${iconUrl(id)}" alt="" loading="lazy" onerror="iconFail(this)"></div>`;
+const disabledBtn = (label, reason, cls = '') => `<button class="btn btn-block ${cls}" disabled>${label}</button><p class="reason">${esc(reason)}</p>`;
+const jobsText = it => (it.jobs ? it.jobs.join(', ') : it.cat === 'book' ? 'ทุกอาชีพ' : '');
+/** the started party I opened (for vault actions) */
+const myRunningParty = () => vals(DB.parties).find(p => p.status === 'started' && p.createdBy === meId());
+
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith('party-')) { const [pid, sub] = h.split('/'); return { name: sub === 'result' ? 'result' : 'party', pid }; }
+  return { name: h.replace(/^\//, '') || 'home' };
+}
+function go(hash) { if (location.hash === hash) render(); else location.hash = hash; window.scrollTo(0, 0); }
+
+let toastTimer;
+function toast(msg, kind = 'ok') {
+  const el = document.getElementById('toast');
+  el.innerHTML = `<div class="t ${kind}"><span>${esc(msg)}</span><button class="btn" data-act="toast-close">ปิด</button></div>`;
+  el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), kind === 'ok' ? 3500 : 6000);
+}
+async function run(fn, okMsg) {
+  try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); return r; }
+  catch (e) { toast(e instanceof UErr ? e.message : 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้ง', 'err'); if (!(e instanceof UErr)) console.error(e); return undefined; }
+}
+
+/* modal */
+const modalRoot = document.getElementById('modal-root');
+function openModal(html) { modalRoot.innerHTML = `<div class="overlay"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`; document.body.classList.add('modal-open'); const f = modalRoot.querySelector('input,button'); if (f) f.focus(); }
+function closeModal() { modalRoot.innerHTML = ''; document.body.classList.remove('modal-open'); }
+function confirmBox({ title, body = '', ok = 'ยืนยัน', okClass = 'btn-primary', cancel = 'ยกเลิก' }) {
+  return new Promise(resolve => {
+    openModal(`<h2>${title}</h2><div class="modal-body">${body}</div>
+      <div class="stack"><button class="btn ${okClass} btn-lg btn-block" id="m-ok">${ok}</button>
+      <button class="btn btn-outline-red btn-lg btn-block" id="m-cancel">${cancel}</button></div>`);
+    modalRoot.querySelector('#m-ok').onclick = () => { closeModal(); resolve(true); };
+    modalRoot.querySelector('#m-cancel').onclick = () => { closeModal(); resolve(false); };
+  });
+}
+
+/* identity */
+function requireMe(then) {
+  if (me()) return then();
+  const last = ls.get('htloot-last');
+  UI.login = { step: last && DB.members[last] ? 'pin' : 'pick', memberId: last && DB.members[last] ? last : null, then };
+  render(); window.scrollTo(0, 0);
+}
+function signIn(mid) {
+  ss.set('htloot-me', mid); ls.set('htloot-last', mid); UI.loginSearch = ''; UI.regOpen = false;
+  const then = UI.login && UI.login.then; UI.login = null;
+  toast(`สวัสดี ${DB.members[mid].name} ✓`); render();
+  if (then) then();
+}
+
+/* =====================================================================
+   7) VIEWS
+   ===================================================================== */
+function renderTopbar() {
+  const m = DB && DB.members ? me() : null, r = route();
+  const notHome = m && (r.name !== 'home' || UI.login);
+  let h = `<div class="wrap topbar-in"><button class="brand ${notHome ? 'has-back' : ''}" data-act="home"><span class="dot" aria-hidden="true">H</span>Horntail Loot</button>`;
+  h += m
+    ? `<div class="whoami">คุณ: <b>${esc(m.name)}</b> · ${esc(m.job)} · มี <b class="pts">${m.points}</b> แต้ม ${neckBadge(m)}</div>`
+    : `<div class="whoami">ยังไม่ได้เลือกชื่อ</div>`;
+  const onGate = !m && UI.login && r.name === 'home';
+  if (m) h += `<div class="top-actions">${notHome ? `<button class="btn btn-outline" data-act="home">หน้าแรก</button>` : ''}<button class="btn btn-outline" data-act="switch-user">เปลี่ยนคน</button></div>`;
+  else if (!onGate) h += `<div class="top-actions"><button class="btn btn-outline" data-act="home">หน้าแรก</button>${UI.login ? '' : '<button class="btn btn-primary" data-act="login">เลือกชื่อ</button>'}</div>`;
+  if (!IS_DEMO && BOOT.online === false) h += `<div class="strip red">เน็ตหลุด กำลังต่อใหม่… ตอนนี้กดอะไรยังไม่บันทึก</div>`;
+  h += '</div>';
+  document.getElementById('topbar').innerHTML = h;
+}
+
+function viewLogin() {
+  const L = UI.login, canCancel = me() || route().name !== 'home';
+  if (L.step === 'pick') {
+    const R = UI.reg, regMissing = !R.name.trim() ? 'ใส่ชื่อก่อน' : !R.job ? 'เลือกอาชีพก่อน' : '';
+    const q = UI.loginSearch.trim().toLowerCase();
+    const found = sortedMembers().filter(m => !q || m.name.toLowerCase().includes(q) || m.job.toLowerCase().includes(q));
+    return `<h1>คุณชื่ออะไร?</h1><p class="lead">แตะชื่อของคุณ</p>
+      <label class="big-label" for="login-search">ค้นหาชื่อ</label>
+      <input id="login-search" type="search" autocomplete="off" data-input="login-search" placeholder="พิมพ์ชื่อ หรืออาชีพ" value="${esc(UI.loginSearch)}">
+      <div class="name-grid mt">${found.map(m => `<button class="btn btn-outline name-btn" data-act="login-pick" data-id="${m.id}"><span>${esc(m.name)}</span><small>${esc(m.job)}</small></button>`).join('')}</div>
+      ${found.length ? '' : `<div class="card">ไม่เจอ "${esc(UI.loginSearch)}" · ลองพิมพ์สั้นลง หรือสมัครใหม่ด้านล่าง</div>`}
+      ${!UI.regOpen ? `<button class="btn btn-outline btn-block mt2" data-act="reg-toggle">ไม่เจอชื่อตัวเอง? สมัครใหม่ ▾</button>` : `
+      <div class="card mt2"><div class="row-between"><h3>สมัครใหม่</h3><button class="btn btn-outline" data-act="reg-toggle">ซ่อน ▴</button></div>
+        <p class="muted">เริ่มที่ 0 แต้ม · ถ้าเคยมีแต้มอยู่แล้ว ให้ค้นหาชื่อเดิมด้านบนก่อน</p>
+        <label class="big-label mt" for="reg-name">ชื่อ</label><input id="reg-name" type="text" maxlength="20" autocomplete="off" data-input="reg" value="${esc(R.name)}" placeholder="ชื่อที่เพื่อนในตี้เรียก">
+        <label class="big-label mt" for="reg-job">อาชีพ</label><select id="reg-job" data-change="reg-job"><option value="">เลือกอาชีพ</option>${JOBS.map(j => `<option ${R.job === j ? 'selected' : ''}>${j}</option>`).join('')}</select>
+        <div class="mt">${regMissing ? disabledBtn('สมัคร', regMissing) : `<button class="btn btn-primary btn-block" data-act="register">สมัคร</button>`}</div>
+      </div>`}
+      ${canCancel ? '<button class="btn btn-outline-red btn-block mt" data-act="login-cancel">ยกเลิก</button>' : ''}`;
+  }
+  const m = DB.members[L.memberId], isNew = !m.pinHash;
+  return `<h1>สวัสดี ${esc(m.name)}</h1><p class="lead">${esc(m.job)} · มี ${m.points} แต้ม</p>
+    <div class="card ${isNew ? 'blue' : ''}">
+      <label class="big-label" for="pin-in">${isNew ? 'ครั้งแรก: ตั้งรหัส PIN 4 ตัว (จำไว้ใช้ครั้งหน้า)' : 'ใส่รหัส PIN 4 ตัว'}</label>
+      <input id="pin-in" class="pin-input ${isNew ? '' : 'pin-mask'}" type="text" inputmode="numeric" autocomplete="off" maxlength="4" data-input="${isNew ? 'pin-new' : 'pin-login'}" value="${esc(L.pin || '')}">
+      ${L.error ? `<p class="err">${esc(L.error)}</p>` : ''}
+      ${isNew
+        ? `<div class="mt">${(L.pin || '').length === 4 ? `<button class="btn btn-success btn-lg btn-block" data-act="pin-set">ใช้รหัส ${esc(L.pin)}</button>` : disabledBtn('ใช้รหัสนี้', 'ใส่ตัวเลขให้ครบ 4 ตัว', 'btn-lg')}</div>`
+        : `<p class="muted mt">ใส่ครบ 4 ตัวแล้วเข้าให้เอง</p>`}
+    </div>
+    <div class="btn-row"><button class="btn btn-outline" data-act="login-repick">ไม่ใช่ฉัน เลือกชื่อใหม่</button>${canCancel ? '<button class="btn btn-outline-red" data-act="login-cancel">ยกเลิก</button>' : ''}</div>`;
+}
+
+/** parse + validate the members JSON → {list, errors} */
+function parseImport(text) {
+  let data; try { data = JSON.parse(text); } catch (e) { return { list: [], errors: ['อ่านไม่ออก รูปแบบ JSON ผิด: ' + e.message] }; }
+  const arr = Array.isArray(data) ? data : data && data.members;
+  if (!Array.isArray(arr) || !arr.length) return { list: [], errors: ['ต้องมี "members" อย่างน้อย 1 คน'] };
+  const errors = [], seen = new Set(), list = [];
+  arr.forEach((x, i) => {
+    const row = `แถวที่ ${i + 1}`, name = String((x && x.name) || '').replace(/\s+/g, ' ').trim(), pts = Number(x && x.points);
+    if (!name) errors.push(`${row}: ไม่มีชื่อ`);
+    else if (seen.has(name.toLowerCase())) errors.push(`${row}: ชื่อ "${name}" ซ้ำ`);
+    if (!JOBS.includes(x && x.job)) errors.push(`${row} (${name || '?'}): อาชีพ "${x && x.job}" ไม่มีในรายการ`);
+    if (!Number.isInteger(pts) || pts < 0) errors.push(`${row} (${name || '?'}): แต้มต้องเป็นเลขเต็ม 0 ขึ้นไป`);
+    seen.add(name.toLowerCase());
+    list.push({ name, job: x && x.job, points: pts, gotNecklace: !!(x && (x.gotNecklace || x.hadNecklace)) });
+  });
+  const rounds = [];
+  (Array.isArray(data && data.rounds) ? data.rounds : []).forEach((r, i) => {
+    const row = `rounds รอบที่ ${i + 1}`, groups = Array.isArray(r && r.groups) ? r.groups : [];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test((r && r.date) || '')) errors.push(`${row}: date ต้องเป็นแบบ 2026-11-17`);
+    if (!groups.length || groups.length > MAX_GROUPS) errors.push(`${row}: ต้องมี 1–${MAX_GROUPS} ปาร์ตี้`);
+    const used = new Set();
+    groups.forEach((g, gi) => {
+      if (!Array.isArray(g) || !g.length || g.length > GROUP_SIZE) errors.push(`${row} ปาร์ตี้ ${gi + 1}: ต้องมี 1–${GROUP_SIZE} คน`);
+      (Array.isArray(g) ? g : []).forEach(n => {
+        const key = String(n || '').trim().toLowerCase();
+        if (!seen.has(key)) errors.push(`${row}: ไม่มีชื่อ "${n}" ใน members`);
+        else if (used.has(key)) errors.push(`${row}: ชื่อ "${n}" ซ้ำ`);
+        used.add(key);
+      });
+    });
+    rounds.push({ date: r && r.date, groups: groups.map(g => (Array.isArray(g) ? g : []).map(n => String(n).trim())) });
+  });
+  return { list, rounds, errors };
+}
+const IMPORT_EXAMPLE = `{
+  "members": [
+    { "name": "พี่ชู", "job": "Dark Knight", "points": 12 },
+    { "name": "ป้าแดง", "job": "Night Lord", "points": 25 }
+  ]
+}`;
+function viewSetup() {
+  const r = UI.importText ? parseImport(UI.importText) : null;
+  let h = `<h1>ตั้งค่าครั้งแรก</h1><p class="lead">ยังไม่มีรายชื่อ วางรายชื่อแบบ JSON แล้วกดนำเข้า (ทำได้ครั้งเดียว)</p>
+    <div class="card"><h3>หน้าตา JSON</h3><pre class="code">${esc(IMPORT_EXAMPLE)}</pre>
+      <p class="muted mt">อาชีพที่ใช้ได้: ${JOBS.join(', ')}</p></div>
+    <label class="big-label" for="import-text">วาง JSON ตรงนี้</label>
+    <textarea id="import-text" class="code-input" data-input="import" rows="10">${esc(UI.importText || '')}</textarea>`;
+  if (r && r.errors.length) h += `<div class="card red mt"><b>ต้องแก้ก่อน:</b>${r.errors.slice(0, 15).map(e => `<div>• ${esc(e)}</div>`).join('')}</div>`;
+  if (r && !r.errors.length) {
+    const plus = {}; r.rounds.forEach(x => x.groups.flat().forEach(n => { plus[n.toLowerCase()] = (plus[n.toLowerCase()] || 0) + 1; }));
+    r.list = r.list.map(x => ({ ...x, after: x.points + (plus[x.name.toLowerCase()] || 0) }));
+    if (r.rounds.length) h += `<h2>รอบเก่าที่จะนำเข้า (${r.rounds.length})</h2>` + r.rounds.map(x => `<div class="card"><b>${esc(partyName(partyIdOf(new Date(x.date + 'T12:00').getTime(), 1)).replace(' · รอบที่ 1', ''))}</b> · ${x.groups.flat().length} คน · ${x.groups.length} ปาร์ตี้ · ทุกคน +1 แต้ม · ไม่มีบันทึกของดรอป</div>`).join('');
+    h += `<h2>ตรวจก่อนนำเข้า (${r.list.length} คน)</h2><div class="table-scroll"><table class="tbl"><tr><th>ชื่อ</th><th>อาชีพ</th><th class="num">แต้ม</th></tr>${r.list.map(x => `<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.job)}</td><td class="num">${x.after !== x.points ? `${x.points} → <b>${x.after}</b>` : x.points}</td></tr>`).join('')}</table></div>
+      <button class="btn btn-success btn-lg btn-block mt" data-act="do-import">นำเข้า ${r.list.length} คน</button>`;
+  } else h += `<div class="mt">${disabledBtn('นำเข้า', r ? 'แก้ที่ผิดด้านบนก่อน' : 'วาง JSON ก่อน', 'btn-lg')}</div>`;
+  return h;
+}
+
+const cancelBtnHtml = () => `<div class="mt2" style="text-align:center"><button class="link-btn" data-act="cancel-party">ยกเลิกตี้นี้</button><p class="note">เช่น คนไม่ครบ ไม่ได้ลง · ยกเลิกแล้วไม่มีใครได้แต้ม</p></div>`;
+function partyStatus(p) {
+  return p.status === 'open' ? '<span class="pill blue">รอคนเข้า</span>' : p.status === 'started' ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">กำลังจองของ</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill gray">จบแล้ว</span>';
+}
+
+function viewHome() {
+  const live = vals(DB.parties).filter(p => p.status === 'open' || p.status === 'started').sort((a, b) => b.createdAt - a.createdAt);
+  const tile = (title, desc, attrs) => `<button class="tile" ${attrs}><span class="tile-title">${title}</span><span class="tile-desc">${desc}</span></button>`;
+  return `<h1>จองของบอส Horntail</h1><p class="lead">เปิดตี้ ส่งลิงก์ให้เพื่อน แล้วจองของที่อยากได้ ระบบดูแต้มและนับแต้มให้</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary btn-xl btn-block" data-act="new-party">เปิดตี้ใหม่</button>
+      <button class="btn btn-outline btn-xl btn-block" data-act="go-me">ดูแต้มของฉัน</button>
+    </div>
+    ${live.length ? `<h2>ตี้ที่เปิดอยู่</h2>` + live.map(p => `<div class="card row-between"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div></div>
+      <button class="btn btn-outline" data-act="go" data-to="#${p.id}">เข้าไปดู</button></div>`).join('') : ''}
+    <button class="btn btn-outline btn-block mt2" data-act="menu-toggle" aria-expanded="${UI.menuOpen}">${UI.menuOpen ? 'ซ่อนเมนู ▴' : 'เมนูอื่นๆ (กติกา คลังของ ประวัติ) ▾'}</button>
+    ${!UI.menuOpen ? '' : `<div class="menu-grid mt">
+      ${tile('กติกา', 'แต้มได้มายังไง จองยังไง ใครได้ของ', 'data-act="go" data-to="#/rules"')}
+      ${tile('แต้มทุกคน', 'ดูว่าใครมีกี่แต้ม', 'data-act="go" data-to="#/points"')}
+      ${tile(`คลังของ (${keys(DB.vault).length})`, 'ของที่ไม่มีใครจอง ขอได้ตลอด', 'data-act="go" data-to="#/vault"')}
+      ${tile('ประวัติ', 'ตี้ที่ผ่านมา ใครได้อะไร', 'data-act="go" data-to="#/history"')}
+      ${tile('ราคาของ', 'ของแต่ละชิ้นใช้กี่แต้ม', 'data-act="go" data-to="#/prices"')}
+    </div>`}`;
+}
+
+function viewRules() {
+  return `<h1>กติกา</h1>
+  <h2>แต้ม</h2><div class="card rules"><ol>
+    <li>ลงบอสกับตี้ ทุกคนในตี้ได้ <b>+1 แต้ม</b></li>
+    <li>หักแต้มเฉพาะตอนได้ของจริง (หักเท่าราคา) · ไม่ได้ของ แต้มไม่หาย</li>
+    <li>ราคาของดูได้ที่ "ราคาของ"</li>
+  </ol></div>
+  <h2>จองของในตี้</h2><div class="card rules"><ol>
+    <li>จองได้ <b>สูงสุด ${MAX_BOOK} ชิ้น</b> ราคารวมต้องไม่เกินแต้มที่มี</li>
+    <li>สกิลบุ๊คกับอาวุธ จองได้เฉพาะอาชีพที่ใช้ได้</li>
+    <li>ยกเลิกหรือเปลี่ยนได้ จนกว่าหัวตี้จะกด <b>"ปิดจอง · ลงบอส"</b> (กดก่อนตีบอส เห็นของดรอปแล้วจองไม่ได้)</li>
+  </ol></div>
+  <h2>ใครได้ของ</h2><div class="card rules"><ol>
+    <li><b>แต้มมากสุดได้ก่อน</b></li>
+    <li>ดรอปหลายชิ้น ไล่จากของแพงไปถูก ได้ชิ้นแรกแล้วแต้มลด ชิ้นต่อไปแข่งด้วยแต้มที่เหลือ<br>
+      <span class="muted">ตัวอย่าง: เก้าอี้ 20 แต้ม + ดาบ 2 แต้มดรอป · A มี 30 จองทั้งคู่ · B มี 15 จองดาบ → A ได้เก้าอี้ (เหลือ 10) · ดาบ B ได้ เพราะ 15 มากกว่า 10</span></li>
+    <li>แต้มเท่ากัน → หัวตี้กดสุ่ม ทุกคนเห็นตอนสุ่ม</li>
+    <li>ได้แล้วไม่รับ → ให้คนถัดไป · ไม่มีใครรับ → เข้าคลัง</li>
+  </ol></div>
+  <h2>สร้อยฮอล (เทรดไม่ได้)</h2><div class="card rules"><ol>
+    <li>อยากได้ต้องจอง (นับเป็น 1 ใน ${MAX_BOOK} ชิ้น)</li>
+    <li>ตอนหัวตี้กด "ปิดจอง · ลงบอส" เว็บเรียงลำดับตามแต้ม (เท่ากันก็สุ่ม) · สร้อยตัดสินก่อนของอื่น</li>
+    <li>ดรอปหลายเส้น ให้ตามลำดับ · ไม่มีใครจอง → ปล่อยทิ้ง (เข้าคลังไม่ได้)</li>
+  </ol></div>
+  <h2>คลังของ</h2><div class="card rules"><ol>
+    <li>ของที่ไม่มีใครเอาเข้าคลัง แต้มพอก็กด "ขอแลก" ได้ตลอด ไม่ต้องลงบอสรอบนั้น</li>
+    <li>ได้ของตอนมีตี้กำลังเล่น หัวตี้ตี้นั้นส่งให้คนแต้มมากสุดในคนที่ขอ (เท่ากันก็สุ่ม)</li>
+    <li>เทรดในเกมแล้ว หัวตี้กด "ส่งแล้ว" ถึงจะหักแต้ม</li>
+  </ol></div>
+  <h2>หัวตี้ทำอะไร</h2><div class="card rules"><ol>
+    <li>เริ่มตี้ · ยกเลิกตี้ · เอาคนออก (ก่อนเริ่มตี้)</li>
+    <li>ปิดจองก่อนลงบอส · กดสุ่มเมื่อแต้มเท่ากัน · บันทึกผล · ส่งของในคลัง</li>
+  </ol></div>`;
+}
+
+/* ---- item card used in party booking ---- */
+function itemCard(p, it, m) {
+  const pr = price(it.id), bookers = bookersOf(p, it.id);
+  const mine = m && myBookings(p, m.id).includes(it.id), isMember = m && p.members[m.id];
+  let action;
+  if (!m) action = `<button class="btn btn-primary btn-block" data-act="login">เลือกชื่อก่อนจอง</button>`;
+  else if (!isMember) action = disabledBtn('จองชิ้นนี้', 'คุณไม่ได้อยู่ในตี้นี้');
+  else if (mine) action = `<button class="btn btn-mine btn-block" disabled>✓ คุณจองชิ้นนี้</button>` +
+    (p.locked ? '<p class="reason">ปิดจองแล้ว ยกเลิกไม่ได้</p>' : `<button class="btn btn-outline-red btn-block mt" data-act="unbook" data-item="${it.id}">ยกเลิกจอง</button>`);
+  else { const e = canBook(DB, p, m, it.id); action = e.ok ? `<button class="btn btn-primary btn-block" data-act="book" data-item="${it.id}">จองชิ้นนี้</button><p class="reason ok">✓ แต้มพอ</p>` : disabledBtn('จองชิ้นนี้', e.reason); }
+  return `<div class="card ${mine ? 'mine' : ''}"><div class="item-row">${iconHtml(it.id)}<div>
+    <div class="item-name">${esc(it.name)}</div>
+    <div class="item-type">${esc(it.type)}${jobsText(it) ? ' · ' + esc(jobsText(it)) : ''}</div>
+    <span class="price">${pr} แต้ม</span>
+    ${bookers.length ? `<div class="mt">คนจอง ${bookers.length} คน: ${bookers.map(b => `<b>${esc(nameOf(b))}</b>`).join(', ')}</div>` : ''}
+  </div><div class="item-action">${action}</div></div></div>`;
+}
+
+const winnerHtml = (id, note = '') => `<div class="winner"><span>ได้ของ</span><b>${esc(nameOf(id))}</b>${note}</div>`;
+function orderHtml(order, extra = () => '') {
+  return `<ol class="order">${order.map((id, i) => `<li class="${i === 0 ? 'first' : ''}"><span class="rank">${i + 1}.</span><span>${esc(nameOf(id))}${extra(id, i)}</span></li>`).join('')}</ol>`;
+}
+/** ranked list [{id, pts}] → "1. name · 20 แต้ม (เท่ากัน)" */
+function rankHtml(list, myId, extra = () => '') {
+  const same = i => (list[i - 1] && list[i - 1].pts === list[i].pts) || (list[i + 1] && list[i + 1].pts === list[i].pts);
+  return orderHtml(list.map(x => x.id), (id, i) => ` <span class="muted">· ${list[i].pts} แต้ม${same(i) ? ' (เท่ากัน)' : ''}</span>${id === myId ? ' <b>(คุณ)</b>' : ''}${extra(list[i])}`);
+}
+const ptsList = ids => ids.map(id => ({ id, pts: DB.members[id] ? DB.members[id].points : 0 })).sort(byPts);
+const viaRollNote = top => (top.viaRoll ? ' <span class="muted">(แต้มเท่ากัน สุ่มได้)</span>' : '');
+const namesOf = ids => ids.map(id => `<b>${esc(nameOf(id))}</b>`).join(', ');
+
+/* ---- necklace order (party page) ---- */
+function neckSectionHtml(p, isOwner, m) {
+  const o = p.neckOrder;
+  let h = `<h2>สร้อยฮอล · ลำดับคนเก็บ</h2><div class="card"><div class="item">${iconHtml(NECK)}<div><div class="item-name">${esc(itemOf(NECK).name)}</div><span class="price">${price(NECK)} แต้ม</span>
+    <p class="muted">เทรดไม่ได้ ต้องรู้ลำดับก่อนลงบอส · ดรอปหลายเส้น ให้ตามลำดับ</p></div></div>`;
+  if (o) h += `<div class="mt"><b>ลำดับ (เรียงตามแต้ม${o.ties ? ' · แต้มเท่ากันสุ่มแล้ว' : ''})</b>${orderHtml(o.order, id => ` <span class="muted">· ${o.points[id]} แต้ม</span>${m && id === m.id ? ' <b>(คุณ)</b>' : ''}`)}</div>
+    <button class="btn btn-outline btn-block mt" data-act="copy-neck">คัดลอกลำดับไป Discord</button>`;
+  else {
+    h += `<div class="mt"><b>คนจอง (เรียงตามแต้มตอนนี้):</b>${rankHtml(ptsList(bookersOf(p, NECK)), m && m.id)}</div>`;
+    h += `<p class="note">ลำดับจะล็อกตอนหัวตี้กด "ปิดจอง · ลงบอส" · ถ้าแต้มเท่ากันจะสุ่มตอนนั้น ทุกคนเห็นพร้อมกัน</p>`;
+  }
+  return h + '</div>';
+}
+
+/* ---- roster split into in-game parties (max 6 each) ---- */
+function rosterHtml(p, m, isOwner) {
+  const open = p.status === 'open', live = open || p.status === 'started', n = groupCount(p);
+  const myG = m && p.members[m.id] ? groupOf(p, m.id) : 0;
+  let h = `<h2>คนในตี้ (${keys(p.members).length}) · ${n} ปาร์ตี้</h2><p class="sec-sub">ปาร์ตี้ละไม่เกิน ${GROUP_SIZE} คน ไว้จัดตี้ในเกม · แต้มและการจองคิดรวมทั้งรอบ</p><div class="groups">`;
+  for (let g = 1; g <= n; g++) {
+    const ids = groupMembers(p, g), full = ids.length >= GROUP_SIZE;
+    h += `<div class="card group"><div class="group-head"><b>ปาร์ตี้ ${g}</b><span class="muted">${ids.length}/${GROUP_SIZE} คน${myG === g ? ' · คุณอยู่ปาร์ตี้นี้' : ''}</span></div>`;
+    ids.forEach(id => {
+      const mm = DB.members[id], bk = myBookings(p, id);
+      h += `<div class="mem ${m && id === m.id ? 'me' : ''}"><div class="mem-main"><b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
+        <div class="mem-pts">${mm ? mm.points : 0}<small> แต้ม</small></div>
+        ${bk.length ? `<div class="mem-bk">${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : ''}
+        ${isOwner && live ? `<div class="mem-act">${n > 1 ? `<button class="btn btn-outline btn-sm" data-act="move-who" data-id="${id}">ย้ายปาร์ตี้</button>` : ''}${open && id !== p.createdBy ? `<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>` : ''}</div>` : ''}</div>`;
+    });
+    if (!full && live) h += `<div class="slot">ว่าง ${GROUP_SIZE - ids.length} ที่</div>`;
+    if (open && m && !myG && !full) h += `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>`;
+    else if (open && !m && !full) h += `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>`;
+    else if (open && myG && myG !== g && !full) h += `<button class="btn btn-outline btn-block mt" data-act="move-me" data-g="${g}">ย้ายมาปาร์ตี้ ${g}</button>`;
+    if (isOwner && live && g === n && n > 1 && !ids.length) h += `<button class="btn btn-outline-red btn-block mt" data-act="group-remove">ลบปาร์ตี้ ${g}</button>`;
+    h += `</div>`;
+  }
+  if (isOwner && live && n < MAX_GROUPS) h += `<button class="add-tile" data-act="group-add">+ เพิ่มปาร์ตี้<br>(${n}/${MAX_GROUPS})</button>`;
+  return h + `</div>`;
+}
+
+function viewParty(r) {
+  const p = DB.parties[r.pid];
+  if (!p) return `<h1>ไม่เจอตี้นี้</h1><p class="lead">ลิงก์อาจผิด ลองขอลิงก์ใหม่จากคนเปิดตี้</p><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
+  const m = me(), isMember = m && p.members[m.id], isOwner = m && p.createdBy === m.id;
+  const memberIds = keys(p.members).sort((a, b) => p.members[a] - p.members[b]);
+  let h = `<h1>${esc(partyName(p.id))}</h1><p class="lead">${partyStatus(p)} · ${p.imported ? 'นำเข้าจากระบบเก่า' : esc(nameOf(p.createdBy)) + ' เป็นคนเปิด'} · ${memberIds.length} คน</p>`;
+
+  if (p.status === 'open') {
+    if (!isMember) h += freeGroup(p) ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="muted mt">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · กดแล้วเลือกชื่อ ใส่รหัส ก็เข้าได้เลย</p>`
+      : `<div class="card red"><b>ทุกปาร์ตี้เต็มแล้ว</b> · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
+    else if (!isOwner) h += `<div class="card green"><b class="card-title">คุณอยู่ในตี้นี้แล้ว ✓</b><p class="muted" style="margin:0">รอ ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดเริ่ม แล้วค่อยจองของ</p></div>`;
+    if (isOwner) h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body">
+      <button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งให้เพื่อนใน Discord</button>
+      <button class="btn btn-primary btn-lg btn-block" data-act="start">คนมาครบแล้ว · เริ่มตี้ (${memberIds.length} คน)</button>
+      <p class="note">เริ่มแล้วจะรับคนเพิ่มไม่ได้ และทุกคนจองของได้เลย</p></div></div>`;
+    h += rosterHtml(p, m, isOwner);
+    if (isMember && !isOwner) h += `<div class="mt2"><button class="btn btn-outline-red btn-block" data-act="leave">ออกจากตี้</button></div>`;
+    if (isOwner) h += cancelBtnHtml();
+    return h;
+  }
+  if (p.status === 'cancelled') return h + `<div class="card red"><b class="card-title">ตี้นี้ยกเลิกแล้ว</b><p class="muted">${p.cancelledAt ? fmtDate(p.cancelledAt) + ' · ' : ''}ไม่มีใครได้แต้ม ของที่จองไว้ยกเลิกหมด</p></div><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
+
+  if (p.status === 'done') return h + partyDoneHtml(p) + deliveredHtml(p);
+
+  // ---- started: booking phase ----
+  if (p.locked) h += `<div class="lock-banner">🔒 <div><b>ปิดจองแล้ว · ลงบอสได้เลย</b><div>${fmtDate(p.locked.at)} · จองเพิ่ม ยกเลิก หรือเปลี่ยนไม่ได้แล้ว</div></div></div>`;
+  if (m && isMember) {
+    const mine = myBookings(p, m.id), used = bookedTotal(DB, p, m.id);
+    h += `<div class="card ${mine.length ? 'green' : 'blue'}"><b class="card-title">${mine.length ? `คุณจอง ${mine.length}/${MAX_BOOK} ชิ้น` : 'คุณยังไม่ได้จอง'}</b>
+      <p class="muted">จองรวม ${used} แต้ม · คุณมี ${m.points} แต้ม · จองได้สูงสุด ${MAX_BOOK} ชิ้น ราคารวมไม่เกินแต้มที่มี</p>`;
+    mine.forEach(id => {
+      const locked = p.locked;
+      h += `<div class="list-row row-between"><div class="item" style="grid-template-columns:44px 1fr;align-items:center">${iconHtml(id, true)}<div><b>${esc(shortName(id))}</b> <span class="price">${price(id)} แต้ม</span></div></div>
+        ${locked ? '<span class="muted">ปิดจองแล้ว</span>' : `<button class="btn btn-outline-red" data-act="unbook" data-item="${id}">ยกเลิก</button>`}</div>`;
+    });
+    if (p.locked) h += `<p class="note">ปิดจองแล้ว (ลงบอส) · เปลี่ยนไม่ได้แล้ว</p>`;
+    else if (!mine.length) h += `<p>เลื่อนลงไป แล้วกด <b>"จองชิ้นนี้"</b> ที่ของที่อยากได้ · จองได้ถึงตอนหัวตี้กด "ปิดจอง"</p>`;
+    h += `</div>`;
+  } else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ตี้เริ่มไปแล้ว ดูได้อย่างเดียว</div>`;
+  else h += `<div class="card blue"><b>ถ้าคุณอยู่ในตี้นี้</b> กด "เลือกชื่อ" ด้านบนก่อน</div>`;
+
+  if (isOwner) h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body">
+    ${p.locked ? `<p class="note" style="margin:0 0 10px">✓ ปิดจองแล้ว ${fmtDate(p.locked.at)}</p>
+    <button class="btn btn-primary btn-lg btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
+    <p class="note">บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้</p>`
+    : `<button class="btn btn-primary btn-lg btn-block" data-act="lock">ปิดจอง · ลงบอส</button>
+    <p class="note">กดก่อนลงบอส: ล็อกการจองทุกชิ้น และเรียงลำดับสร้อยตามแต้ม (เท่ากันสุ่ม)</p>
+    <button class="btn btn-outline btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
+    <p class="note">ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้าบันทึกผล</p>`}</div></div>`;
+  else h += `<p class="note">${p.locked ? 'ปิดจองแล้ว · ' : `จองได้ถึงตอน ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดปิดจองก่อนลงบอส · `}ลงบอสจบแล้ว คนเปิดตี้จะบันทึกว่าใครได้อะไร</p>`;
+
+  h += rosterHtml(p, m, isOwner);
+  if (bookersOf(p, NECK).length) h += neckSectionHtml(p, isOwner, m);
+
+  // who booked what (ranked by points now; decided when the result is recorded)
+  const booked = bookedItemIds(p).filter(id => id !== NECK).sort((a, b) => price(b) - price(a) || a - b);
+  h += `<h2>ใครจองอะไร</h2><p class="muted">ตัดสินตอนบันทึกผล: แต้มมากสุดได้ก่อน · ไล่จากของแพงไปถูก · ได้ชิ้นแรกแล้วแต้มลด · แต้มเท่ากัน หัวตี้กดสุ่ม</p>`;
+  if (!booked.length) h += `<div class="card">ยังไม่มีใครจอง</div>`;
+  else h += `<div class="cards-grid">` + booked.map(id => `<div class="card"><div class="item">${iconHtml(id)}<div><div class="item-name">${esc(itemOf(id).name)}</div><span class="price">${price(id)} แต้ม</span></div></div>
+      <div class="mt"><b>คนจอง (เรียงตามแต้มตอนนี้):</b>${rankHtml(ptsList(bookersOf(p, id)), m && m.id)}</div></div>`).join('') + `</div>`;
+  const noBook = memberIds.filter(id => !myBookings(p, id).length);
+  if (noBook.length) h += `<p class="muted">ยังไม่จอง: ${noBook.map(id => esc(nameOf(id))).join(', ')}</p>`;
+
+
+  h += vaultSectionHtml(p, isOwner) + deliveredHtml(p);
+
+  // item list
+  h += `<h2>ของทั้งหมด</h2>`;
+  const canFilter = m && isMember;
+  if (canFilter) h += `<div class="seg"><button class="btn ${UI.filter === 'mine' ? 'btn-chosen' : 'btn-off'}" data-act="filter" data-v="mine">เฉพาะที่ฉันจองได้</button><button class="btn ${UI.filter === 'all' ? 'btn-chosen' : 'btn-off'}" data-act="filter" data-v="all">ดูทั้งหมด</button></div>`;
+  h += `<label class="big-label" for="item-search">ค้นหาของ</label><input id="item-search" type="search" data-input="search" placeholder="เช่น ring, berserk, สร้อย" value="${esc(UI.search)}">`;
+  const q = UI.search.trim().toLowerCase();
+  let list = ITEMS.filter(it => !q || it.name.toLowerCase().includes(q) || (it.type || '').includes(q));
+  if (canFilter && UI.filter === 'mine') list = list.filter(it => myBookings(p, m.id).includes(it.id) || canBook(DB, p, m, it.id).ok);
+  if (!list.length) h += `<div class="card mt">ไม่เจอของ${canFilter && UI.filter === 'mine' ? 'ที่คุณจองได้ (ลองกด "ดูทั้งหมด")' : ''}</div>`;
+  let lastCat = '', openGrid = false;
+  CAT_ORDER.forEach(cat => list.filter(it => it.cat === cat).forEach(it => {
+    const label = CAT_LABEL[cat];
+    if (label !== lastCat) { h += `${openGrid ? '</div>' : ''}<h3 class="mt2">${label}</h3><div class="cards-grid">`; openGrid = true; lastCat = label; }
+    h += itemCard(p, it, m);
+  }));
+  if (openGrid) h += '</div>';
+  if (isOwner) h += cancelBtnHtml();
+  return h;
+}
+
+/* ---- vault section on the party page (opener runs it) ---- */
+function vaultSectionHtml(p, isOwner) {
+  if (p.status !== 'started') return '';
+  const items = vals(DB.vault).filter(v => keys(v.requests).length);
+  if (!items.length) return '';
+  let h = `<h2>ของในคลังที่มีคนขอ (${items.length})</h2><p class="muted">แต้มมากสุดได้ · แต้มเท่ากัน หัวตี้กดสุ่ม${isOwner ? ' · เทรดในเกมก่อน แล้วค่อยกด "ส่งแล้ว"' : ' · คนเปิดตี้เป็นคนส่งของ'}</p>`;
+  h += `<div class="cards-grid">`;
+  items.forEach(v => {
+    const pr = price(v.itemId), top = vaultTop(DB, v);
+    h += `<div class="card"><div class="item">${iconHtml(v.itemId)}<div><div class="item-name">${esc(itemOf(v.itemId).name)}</div><span class="price">${pr} แต้ม</span></div></div>
+      <div class="mt"><b>คนขอ (เรียงตามแต้ม):</b>${rankHtml(vaultRank(DB, v), meId(), x => (x.ok ? '' : ' <span class="reason">แต้มไม่พอแล้ว</span>'))}</div>`;
+    if (!top) h += `<p class="reason">ไม่มีใครแต้มพอแล้ว</p>`;
+    else if (top.tie) {
+      h += `<p class="mt"><b>แต้มเท่ากัน:</b> ${namesOf(top.tie)}</p>`;
+      h += isOwner ? `<button class="btn btn-primary btn-block" data-act="vault-tie" data-id="${v.id}">สุ่มว่าใครได้</button>` : `<p class="muted">รอคนเปิดตี้กดสุ่ม</p>`;
+    } else {
+      h += `<div class="mt">${winnerHtml(top.id, viaRollNote(top))}</div>`;
+      if (isOwner) h += `<div class="stack mt"><button class="btn btn-success btn-block" data-act="vault-deliver" data-id="${v.id}" data-m="${top.id}">ส่งของให้ ${esc(nameOf(top.id))} แล้ว (หัก ${pr} แต้ม)</button>
+        <button class="btn btn-outline btn-block" data-act="vault-decline" data-id="${v.id}" data-m="${top.id}">${esc(nameOf(top.id))} ไม่รับ → ให้คนถัดไป</button></div>`;
+    }
+    h += `</div>`;
+  });
+  return h + `</div>`;
+}
+
+/** vault items handed over while this party was running (from the log) */
+function deliveredHtml(p) {
+  const ls = vals(DB.log).filter(l => l.type === 'vault-deliver' && l.partyId === p.id).sort((a, b) => a.at - b.at);
+  if (!ls.length) return '';
+  return `<h2>ส่งของจากคลังในตี้นี้ (${ls.length})</h2><div class="card">` + ls.map(l => `<div class="list-row row-between"><div class="item" style="grid-template-columns:40px 1fr;align-items:center">${iconHtml(l.itemId, true)}<div><b>${esc(shortName(l.itemId))}</b> → <b>${esc(nameOf(l.memberId))}</b><div class="note" style="margin:0">หัก ${l.price} แต้ม (${l.before} → ${l.after}) · ${fmtDate(l.at)}</div></div></div><span class="pill green">ส่งแล้ว ✓</span></div>`).join('') + `</div>`;
+}
+
+function partyDoneHtml(p) {
+  const R = p.result || {};
+  if (p.imported) return `<div class="card blue"><b class="card-title">นำเข้าจากระบบเก่า</b><p class="muted" style="margin:0">ไม่ได้บันทึกของที่ดรอป · ทุกคนที่ลงได้ +1 แต้ม</p></div>` + rosterHtml(p, me(), false) + `<h2>แต้มก่อน → หลัง</h2>` + pointsTable(R);
+  let h = `<div class="card green"><b class="card-title">บันทึกผลแล้ว ✓</b> <span class="muted">${fmtDate(p.doneAt)} · โดย ${esc(nameOf(R.by))}</span></div>`;
+  h += `<h2>ใครได้อะไร</h2>`;
+  if (!(R.awards || []).length) h += `<div class="card">รอบนี้ไม่มีใครได้ของ</div>`;
+  (R.awards || []).forEach(a => {
+    h += `<div class="card"><div class="item">${iconHtml(a.itemId)}<div><div class="item-name">${esc(shortName(a.itemId))} → ${esc(nameOf(a.memberId))}</div>
+      <div>${a.kind === 'free' ? 'สุ่มแจกฟรี ไม่หักแต้ม' : `หัก ${a.price} แต้ม`}</div></div></div></div>`;
+  });
+  if ((R.toVault || []).length) h += `<div class="card blue"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</div>`;
+  h += `<h2>แต้มก่อน → หลัง</h2>` + pointsTable(R);
+  h += `<button class="btn btn-outline btn-block mt" data-act="copy-result" data-pid="${p.id}">คัดลอกสรุปไป Discord</button>`;
+  return h;
+}
+function pointsTable(R) {
+  const ids = keys(R.pointsBefore || {}).sort((a, b) => (R.pointsAfter[b] - R.pointsBefore[b]) - (R.pointsAfter[a] - R.pointsBefore[a]));
+  return `<div class="table-scroll"><table class="tbl"><tr><th>ชื่อ</th><th class="num">ก่อน</th><th class="num">หลัง</th><th class="num">เปลี่ยน</th></tr>${ids.map(id => {
+    const d = R.pointsAfter[id] - R.pointsBefore[id];
+    return `<tr><td><b>${esc(nameOf(id))}</b>${(R.finishers || []).includes(id) ? '' : ' <span class="muted">(ไม่ได้อยู่จนจบ)</span>'}</td><td class="num">${R.pointsBefore[id]}</td><td class="num"><b>${R.pointsAfter[id]}</b></td><td class="num ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '+' : ''}${d}</td></tr>`;
+  }).join('')}</table></div>`;
+}
+
+/* ---- result entry (party opener) ---- */
+function getDraft(p) {
+  let d = UI.drafts[p.id];
+  if (!d) { d = { booked: {}, extras: {} }; UI.drafts[p.id] = d; }
+  return d;
+}
+/** necklace strands → member ids in the fixed order (or 'LEAVE' = nobody takes it) */
+function resolveNeck(p, d) {
+  const order = neckOrderOf(p) || [], b = d.booked[NECK] || { count: 0, picks: [] };
+  const used = new Set(), out = new Array(b.count);
+  for (let i = 0; i < b.count; i++) { const x = b.picks[i]; if (x && (x === 'LEAVE' || !used.has(x))) { out[i] = x; if (x !== 'LEAVE') used.add(x); } }
+  for (let i = 0; i < b.count; i++) {
+    if (out[i]) continue;
+    const next = order.find(id => !used.has(id));
+    out[i] = next || 'LEAVE'; if (next) used.add(next);
+  }
+  return out;
+}
+/** who gets what: necklace first (ordered before the boss), then most expensive first, most points wins.
+ *  points drop as people win, so later items see the remaining points. A tie with no roll stops here. */
+function computeResult(p, d) {
+  const finishers = keys(p.members);   // everyone who came gets +1
+  const awards = [], toVault = [], problems = [], items = {}, R = {};
+  const pts = id => (id in R ? R[id] : (R[id] = DB.members[id] ? DB.members[id].points : 0));
+  const nb = d.booked[NECK];
+  if (nb && nb.count) {
+    if (!neckOrderOf(p)) problems.push('ยังไม่ได้ปิดจอง');
+    else resolveNeck(p, d).forEach(x => { if (x !== 'LEAVE') { pts(x); R[x] -= price(NECK); awards.push({ itemId: NECK, memberId: x, price: price(NECK), kind: 'booked' }); } });
+  }
+  let blocked = false;
+  bookedItemIds(p).filter(id => id !== NECK).sort((a, b) => price(b) - price(a) || a - b).forEach(id => {
+    const b = d.booked[id] || {}, info = items[id] = { dropped: !!b.drop, declined: b.declined || [], rank: [] };
+    if (!info.dropped) return;
+    if (blocked) { info.waiting = true; return; }
+    const pr = price(id);
+    info.rank = bookersOf(p, id).filter(x => !info.declined.includes(x)).map(x => ({ id: x, pts: pts(x), ok: pts(x) >= pr })).sort(byPts);
+    const top = pickTop(info.rank.filter(x => x.ok), tieOrdersOf(p.tieRolls, id));
+    if (!top) { info.toVault = true; toVault.push(id); return; }
+    if (top.tie) { info.tie = top.tie; info.tiePts = pts(top.tie[0]); blocked = true; problems.push(`แต้มเท่ากัน ต้องสุ่ม ${shortName(id)}`); return; }
+    info.winner = top.id; info.viaRoll = top.viaRoll; R[top.id] -= pr;
+    awards.push({ itemId: id, memberId: top.id, price: pr, kind: 'booked' });
+  });
+  Object.entries(d.extras).forEach(([id, c]) => { for (let i = 0; i < c; i++) toVault.push(Number(id)); });
+  return { finishers, awards, toVault, problems, items };
+}
+function stepper(act, id, val, label) {
+  return `<div class="stepper"><button class="btn btn-outline" data-act="${act}" data-id="${id}" data-d="-1" ${val <= 0 ? 'disabled' : ''} aria-label="ลด">−</button>
+    <span class="val">${label}</span><button class="btn btn-outline" data-act="${act}" data-id="${id}" data-d="1" aria-label="เพิ่ม">+</button></div>`;
+}
+
+function viewResult(r) {
+  const p = DB.parties[r.pid];
+  if (!p) return `<h1>ไม่เจอตี้นี้</h1>`;
+  const back = `<button class="btn btn-outline btn-block mt" data-act="go" data-to="#${p.id}">กลับไปหน้าตี้</button>`;
+  if (!me()) return `<h1>บันทึกผล</h1><button class="btn btn-primary btn-lg btn-block" data-act="login">เลือกชื่อก่อน</button>${back}`;
+  if (p.createdBy !== meId()) return `<h1>บันทึกผล</h1><div class="card red">คนเปิดตี้ (${esc(nameOf(p.createdBy))}) เท่านั้นที่บันทึกผลได้</div>${back}`;
+  if (p.status === 'done') return `<h1>ตี้นี้บันทึกผลไปแล้ว</h1>${back}`;
+  if (p.status === 'cancelled') return `<h1>ตี้นี้ยกเลิกแล้ว</h1>${back}`;
+  if (p.status === 'open') return `<h1>ตี้ยังไม่เริ่ม</h1><p class="lead">กด "เริ่มตี้" ก่อน</p>${back}`;
+  if (!p.locked) {   // opener skipped "ปิดจอง" → lock now, once
+    if (!UI.autoLock[p.id]) { UI.autoLock[p.id] = true; setTimeout(() => run(() => Api.lock(p.id, meId()), 'ปิดจองให้อัตโนมัติแล้ว ✓ ไม่มีใครจองเพิ่มได้'), 0); }
+    return `<h1>บันทึกผล</h1><p class="lead">กำลังปิดจอง…</p>${back}`;
+  }
+  const d = getDraft(p), c = computeResult(p, d);
+  let h = `<h1>บันทึกผล</h1><p class="lead">${esc(partyName(p.id))} · ทำทีละข้อ 1 → 2 แล้วกดยืนยันข้างล่าง · ทุกคนในตี้ (${keys(p.members).length} คน) ได้ 1 แต้ม</p>`;
+
+  h += `<h2>1. ของที่มีคนจอง ดรอปไหม?</h2><p class="muted">กดแค่ว่าดรอปไหม เว็บคิดให้ว่าใครได้: สร้อยตามลำดับ · ของอื่นแต้มมากสุดได้ ไล่จากของแพงไปถูก ได้ชิ้นแรกแล้วแต้มลด</p>`;
+  const booked = bookedItemIds(p);
+  if (!booked.length) h += `<div class="card">ไม่มีใครจอง</div>`;
+  if (booked.includes(NECK)) {
+    const order = neckOrderOf(p), b = d.booked[NECK] || { count: 0, picks: [] };
+    h += `<div class="card"><div class="item">${iconHtml(NECK)}<div><div class="item-name">${esc(itemOf(NECK).name)}</div><span class="price">${price(NECK)} แต้ม</span></div></div>`;
+    if (!order) h += `<p class="reason">ยังไม่มีลำดับ ลองโหลดหน้าใหม่</p>`;
+    else {
+      h += `<div class="mt"><b>ลำดับ:</b>${orderHtml(order)}</div><div class="mt"><b>ดรอปกี่เส้น?</b>${stepper('cnt', NECK, b.count, b.count ? b.count + ' เส้น' : 'ไม่ดรอป')}</div>`;
+      resolveNeck(p, d).forEach((pick, i) => {
+        h += `<div class="mt"><b>เส้นที่ ${i + 1} ให้ใคร?</b><div class="stack" style="margin-top:6px">${order.map((id, k) => `<button class="btn btn-block ${pick === id ? 'btn-chosen' : 'btn-off'}" data-act="pick" data-item="${NECK}" data-i="${i}" data-v="${id}">${k + 1}. ${esc(nameOf(id))}${pick === id ? ' ✓' : ''}</button>`).join('')}
+          <button class="btn btn-block ${pick === 'LEAVE' ? 'btn-chosen' : 'btn-off'}" data-act="pick" data-item="${NECK}" data-i="${i}" data-v="LEAVE">ไม่มีใครเก็บ → ปล่อยทิ้ง${pick === 'LEAVE' ? ' ✓' : ''}</button></div></div>`;
+      });
+    }
+    h += `</div>`;
+  }
+  booked.filter(id => id !== NECK).sort((a, b) => price(b) - price(a) || a - b).forEach(itemId => {
+    const info = c.items[itemId];
+    h += `<div class="card"><div class="item">${iconHtml(itemId)}<div><div class="item-name">${esc(itemOf(itemId).name)}</div><span class="price">${price(itemId)} แต้ม</span></div></div>
+      <div class="seg mt"><button class="btn ${!info.dropped ? 'btn-chosen' : 'btn-off'}" data-act="drop" data-id="${itemId}" data-v="0">${!info.dropped ? '✓ ' : ''}ไม่ดรอป</button>
+      <button class="btn ${info.dropped ? 'btn-chosen' : 'btn-off'}" data-act="drop" data-id="${itemId}" data-v="1">${info.dropped ? '✓ ' : ''}ดรอป</button></div>`;
+    if (info.dropped && info.waiting) h += `<p class="reason mt">รอสุ่มชิ้นข้างบนก่อน</p>`;
+    else if (info.dropped) {
+      if (info.rank.length) h += `<div class="mt"><b>คนจอง (แต้มที่เหลือ ณ ชิ้นนี้):</b>${rankHtml(info.rank, null, x => (x.ok ? '' : ' <span class="reason">แต้มไม่พอแล้ว</span>'))}</div>`;
+      if (info.declined.length) h += `<div class="row-between mt"><span class="muted">ไม่รับ: ${info.declined.map(id => esc(nameOf(id))).join(', ')}</span><button class="btn btn-outline" data-act="undecline" data-id="${itemId}">ล้าง</button></div>`;
+      if (info.tie) h += `<div class="card blue mt" style="margin-bottom:0"><b>แต้มเท่ากัน (${info.tiePts} แต้ม):</b> ${namesOf(info.tie)}
+        <button class="btn btn-primary btn-block mt" data-act="tie-roll" data-id="${itemId}">สุ่มว่าใครได้</button><p class="muted">ทุกคนที่เปิดหน้าตี้อยู่จะเห็นตอนสุ่ม</p></div>`;
+      else if (info.winner) h += `<div class="mt">${winnerHtml(info.winner, viaRollNote(info))}</div>
+        <button class="btn btn-outline btn-block mt" data-act="decline" data-id="${itemId}" data-m="${info.winner}">${esc(nameOf(info.winner))} ไม่รับ → ให้คนถัดไป</button>`;
+      else if (info.toVault) h += `<p class="mt"><b>ไม่มีใครรับ → เข้าคลัง</b></p>`;
+    }
+    h += `</div>`;
+  });
+
+  h += `<h2>2. ของอื่นที่ดรอป แต่ไม่มีใครจอง</h2><p class="muted">ของพวกนี้จะเข้าคลัง ให้คนมาขอทีหลัง · สร้อยฮอลที่ไม่มีคนจองปล่อยทิ้ง (เข้าคลังไม่ได้)</p>`;
+  Object.entries(d.extras).forEach(([id, n]) => {
+    h += `<div class="card"><div class="item">${iconHtml(id, true)}<div><div class="item-name">${esc(itemOf(id).name)}</div>${stepper('extra', id, n, n + ' ชิ้น')}</div></div></div>`;
+  });
+  h += `<label class="big-label" for="extra-search">ค้นหาชื่อของ แล้วกด "เพิ่ม"</label><input id="extra-search" type="search" data-input="extra-search" placeholder="พิมพ์ชื่อของ" value="${esc(UI.extraSearch)}">`;
+  const q = UI.extraSearch.trim().toLowerCase();
+  if (q) {
+    const found = ITEMS.filter(it => it.id !== NECK && !booked.includes(it.id) && !d.extras[it.id] && it.name.toLowerCase().includes(q)).slice(0, 8);
+    h += `<div class="stack mt">${found.map(it => `<div class="card row-between" style="margin:0"><div class="item" style="grid-template-columns:44px 1fr;align-items:center">${iconHtml(it.id, true)}<b>${esc(it.name)}</b></div><button class="btn btn-primary" data-act="extra-add" data-id="${it.id}">เพิ่ม</button></div>`).join('') || '<div class="card">ไม่เจอ</div>'}</div>`;
+  }
+
+  const vs = vaultSectionHtml(p, true);
+  if (vs) h += vs.replace('<h2>ของในคลังที่มีคนขอ', '<h2>3. ของในคลังที่มีคนขอ').replace('</h2>', '</h2><p class="sec-sub">ไม่เกี่ยวกับผลตี้ · ถ้าเทรดให้แล้วกด "ส่งแล้ว" ก่อนยืนยันผล เพราะหลังยืนยันผล ต้องรอส่งตอนตี้หน้า</p>');
+  h += `<h2>สรุป</h2>${resultSummaryHtml(p, c)}`;
+  h += c.problems.length ? disabledBtn('ยืนยันผล', c.problems.join(' · '), 'btn-lg') : `<button class="btn btn-success btn-lg btn-block" data-act="confirm-result">ยืนยันผล</button>`;
+  return h + back;
+}
+function previewPoints(p, c) {
+  const before = {}, after = {};
+  new Set([...keys(p.members), ...c.awards.map(a => a.memberId)]).forEach(id => { if (DB.members[id]) before[id] = after[id] = DB.members[id].points; });
+  c.awards.forEach(a => { after[a.memberId] -= a.price; });
+  c.finishers.forEach(id => { after[id] += 1; });
+  return { pointsBefore: before, pointsAfter: after, finishers: c.finishers };
+}
+function resultSummaryHtml(p, c) {
+  return `<div class="card blue"><b>ใครได้อะไร:</b>${c.awards.length ? c.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${a.kind === 'free' ? '(แจกฟรี)' : `(หัก ${a.price})`}</div>`).join('') : '<div>ไม่มี</div>'}
+    <div class="mt"><b>เข้าคลัง:</b> ${c.toVault.length ? c.toVault.map(id => esc(shortName(id))).join(', ') : 'ไม่มี'}</div></div>` + pointsTable(previewPoints(p, c));
+}
+
+/* ---- my points ---- */
+function vaultStatusText(v, mid) {
+  const top = vaultTop(DB, v);
+  if (top && top.id === mid) return 'ตอนนี้คุณแต้มมากสุด ✓ ได้ของตอนมีตี้กำลังเล่น (หัวตี้ส่งให้)';
+  if (top && top.tie && top.tie.includes(mid)) return 'แต้มเท่ากับคนอื่น · หัวตี้จะสุ่มตอนมีตี้';
+  return 'มีคนแต้มมากกว่า · ถ้าเขาไม่รับ จะถึงคุณ';
+}
+function viewMe() {
+  const m = me(); if (!m) return `<h1>แต้มของฉัน</h1><button class="btn btn-primary btn-xl btn-block" data-act="login">เลือกชื่อของฉัน</button>`;
+  let h = `<h1>แต้มของฉัน</h1><div class="card stat"><div class="muted">${esc(m.name)} · ${esc(m.job)}</div><div class="stat-num">${m.points}</div><div class="muted">แต้ม</div></div>`;
+  h += !UI.renameOpen ? `<button class="btn btn-outline btn-block" data-act="rename-toggle">เปลี่ยนชื่อ</button>`
+    : `<div class="card"><div class="row-between"><h3 style="margin:0">เปลี่ยนชื่อ</h3><button class="btn btn-outline btn-sm" data-act="rename-toggle">ปิด</button></div>
+      <label class="big-label mt" for="rename-in">ชื่อใหม่ (ไม่เกิน 20 ตัว)</label><input id="rename-in" type="text" maxlength="20" autocomplete="off" data-input="rename" value="${esc(UI.renameText)}">
+      <p class="note">แต้มและประวัติยังอยู่ครบ · เพื่อนจะเห็นชื่อใหม่ทุกหน้า</p>
+      <div class="mt">${!UI.renameText.trim() || UI.renameText.trim() === m.name ? disabledBtn('บันทึกชื่อใหม่', UI.renameText.trim() ? 'ยังเป็นชื่อเดิม' : 'ใส่ชื่อก่อน') : `<button class="btn btn-primary btn-block" data-act="rename-save">บันทึกชื่อใหม่</button>`}</div></div>`;
+  const reqs = vals(DB.vault).filter(v => v.requests && v.requests[m.id]);
+  h += `<h2>ของที่ฉันขอจากคลัง</h2>` + (reqs.length ? reqs.map(v => `<div class="card"><b>${esc(shortName(v.itemId))}</b> · ${price(v.itemId)} แต้ม<div class="muted">${vaultStatusText(v, m.id)}</div></div>`).join('') : '<div class="card">ยังไม่ได้ขอ</div>');
+  h += `<button class="btn btn-outline btn-block" data-act="go" data-to="#/vault">ไปที่คลังของ</button>`;
+  const rows = [];
+  vals(DB.parties).filter(p => p.status === 'done' && p.result && p.result.pointsBefore && m.id in p.result.pointsBefore).forEach(p => {
+    const got = p.result.awards.filter(a => a.memberId === m.id).map(a => shortName(a.itemId)).join(', ');
+    rows.push({ at: p.doneAt, what: `${partyName(p.id)}${got ? ' · ได้ ' + got : ''}${myBookings(p, m.id).length ? ' · จอง ' + myBookings(p, m.id).map(shortName).join(', ') : ''}`, b: p.result.pointsBefore[m.id], a: p.result.pointsAfter[m.id] });
+  });
+  vals(DB.log).filter(l => l.memberId === m.id && 'before' in l).forEach(l => rows.push({ at: l.at, what: `ได้จากคลัง: ${shortName(l.itemId)}`, b: l.before, a: l.after }));
+  rows.sort((a, b) => b.at - a.at);
+  h += `<h2>แต้มของฉันเปลี่ยนเมื่อไหร่</h2>` + (rows.length ? `<div class="table-scroll"><table class="tbl"><tr><th>เมื่อไหร่ / อะไร</th><th class="num">ก่อน → หลัง</th></tr>${rows.map(r => `<tr><td>${fmtDate(r.at)}<br><b>${esc(r.what)}</b></td><td class="num">${r.b} → <b>${r.a}</b> <span class="${r.a - r.b >= 0 ? 'up' : 'down'}">(${r.a - r.b >= 0 ? '+' : ''}${r.a - r.b})</span></td></tr>`).join('')}</table></div>` : '<div class="card">ยังไม่มี</div>');
+  return h;
+}
+
+/* ---- leaderboard ---- */
+function viewPoints() {
+  const q = UI.boardSearch.trim().toLowerCase();
+  const list = vals(DB.members).filter(m => (!q || m.name.toLowerCase().includes(q)) && (!UI.boardJob || m.job === UI.boardJob)).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, 'th'));
+  const myId = meId();
+  return `<h1>แต้มทุกคน</h1>
+    <label class="big-label" for="board-search">ค้นหาชื่อ</label><input id="board-search" type="search" data-input="board-search" value="${esc(UI.boardSearch)}" placeholder="พิมพ์ชื่อ">
+    <label class="big-label mt" for="board-job">อาชีพ</label><select id="board-job" data-change="board-job"><option value="">ทุกอาชีพ</option>${JOBS.map(j => `<option ${UI.boardJob === j ? 'selected' : ''}>${j}</option>`).join('')}</select>
+    <div class="table-scroll mt"><table class="tbl"><tr><th>ที่</th><th>ชื่อ / อาชีพ</th><th class="num">แต้ม</th></tr>
+    ${list.map((m, i) => `<tr ${m.id === myId ? 'class="me"' : ''}><td>${i + 1}</td><td><b>${esc(m.name)}</b>${m.id === myId ? ' (คุณ)' : ''}${neckBadge(m)}<br>${esc(m.job)}</td><td class="num big-num">${m.points}</td></tr>`).join('') || '<tr><td colspan="3">ไม่เจอ</td></tr>'}</table></div>`;
+}
+
+/* ---- vault ---- */
+function viewVault() {
+  const m = me();
+  const list = vals(DB.vault).sort((a, b) => price(b.itemId) - price(a.itemId) || a.addedAt - b.addedAt);
+  let h = `<h1>คลังของ</h1><p class="lead">ของที่ไม่มีใครเอา · แต้มพอก็กด "ขอแลก" ได้ตลอด · ได้ของตอนมีตี้กำลังเล่น · ขอหลายคน แต้มมากสุดได้ (เท่ากันสุ่ม)</p>`;
+  if (!list.length) return h + `<div class="card">คลังว่าง</div>`;
+  list.forEach(v => {
+    const it = itemOf(v.itemId), reqIds = keys(v.requests);
+    h += `<div class="card"><div class="item">${iconHtml(v.itemId)}<div><div class="item-name">${esc(it.name)}</div><div class="item-type">${esc(it.type)}${jobsText(it) ? ' · ' + esc(jobsText(it)) : ''}</div><span class="price">${price(v.itemId)} แต้ม</span>
+      <div class="muted">เข้าคลังเมื่อ ${fmtDate(v.addedAt)}</div></div></div>`;
+    {
+      if (reqIds.length) h += `<div class="mt"><b>คนขอ ${reqIds.length} คน (เรียงตามแต้ม):</b></div>${rankHtml(vaultRank(DB, v), m && m.id, x => (x.ok ? '' : ' <span class="reason">แต้มไม่พอแล้ว</span>'))}`;
+      else h += `<p class="mt muted">ยังไม่มีใครขอ</p>`;
+      h += '<div class="mt">';
+      if (!m) h += `<button class="btn btn-primary btn-block" data-act="login">เลือกชื่อก่อนขอ</button>`;
+      else if (v.requests && v.requests[m.id]) h += `<div class="card green" style="margin:0 0 10px"><b>คุณขอแล้ว ✓</b> ${vaultStatusText(v, m.id)}</div><button class="btn btn-outline-red btn-block" data-act="vault-cancel" data-id="${v.id}">ยกเลิกที่ขอ</button>`;
+      else { const e = eligibility(DB, m, v.itemId); h += e.ok ? `<button class="btn btn-primary btn-block" data-act="vault-request" data-id="${v.id}">ขอแลก</button><p class="reason ok">✓ แต้มพอ</p>` : disabledBtn('ขอแลก', e.reason); }
+      h += '</div>';
+    }
+    h += `</div>`;
+  });
+  return h;
+}
+
+/* ---- history ---- */
+function viewHistory() {
+  const done = vals(DB.parties).filter(p => p.status === 'done').sort((a, b) => b.doneAt - a.doneAt);
+  let h = `<h1>ประวัติ</h1>`;
+  if (!done.length) h += `<div class="card">ยังไม่มีตี้ที่จบ</div>`;
+  done.forEach((p, i) => {
+    const open = UI.openHist[p.id] ?? i === 0, R = p.result;
+    h += `<div class="card"><div class="row-between"><div><b class="card-title">${esc(partyName(p.id))}</b><div class="muted">${p.imported ? 'ระบบเก่า' : fmtDate(p.doneAt)} · ${keys(p.members).length} คน${p.imported ? '' : ` · ได้ของ ${R.awards.length} ชิ้น`}</div></div>
+      <button class="btn btn-outline" data-act="hist-toggle" data-id="${p.id}">${open ? 'ซ่อน' : 'ดูละเอียด'}</button></div>`;
+    if (open && p.imported) h += `<p class="note">นำเข้าจากระบบเก่า · ไม่ได้บันทึกของที่ดรอป · ทุกคน +1 แต้ม</p><h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id))).join(', ')}</p><h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
+    else if (open) {
+      h += `<h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id)) + (R.finishers.includes(id) ? '' : ' (ออกก่อน)')).join(', ')}</p>`;
+      h += `<h3>ใครจองอะไร</h3>` + (bookedItemIds(p).map(id => `<div class="mt"><b>${esc(shortName(id))}</b>${orderHtml(id === NECK && p.neckOrder ? p.neckOrder.order : bookersOf(p, id))}</div>`).join('') || '<p>ไม่มี</p>');
+      h += `<h3 class="mt">ใครได้</h3>${R.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${a.kind === 'free' ? '(แจกฟรี)' : `(หัก ${a.price})`}</div>`).join('') || '<p>ไม่มี</p>'}`;
+      if (R.toVault.length) h += `<p class="mt"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</p>`;
+      h += `<h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
+    }
+    h += `</div>`;
+  });
+  const logs = vals(DB.log).sort((a, b) => b.at - a.at);
+  h += `<h2>ส่งของจากคลัง / คนสมัครใหม่ / เปลี่ยนชื่อ</h2>` + (logs.length ? logs.map(l => `<div class="card"><div class="muted">${fmtDate(l.at)}${l.type === 'vault-deliver' ? ' · ' + esc(nameOf(l.by)) + ' เป็นคนส่ง' : ''}</div><b>${esc(logText(l))}</b></div>`).join('') : '<div class="card">ยังไม่มี</div>');
+  return h;
+}
+function logText(l) {
+  switch (l.type) {
+    case 'vault-deliver': return `${shortName(l.itemId)} → ${nameOf(l.memberId)} (แต้ม ${l.before} → ${l.after})`;
+    case 'member-register': return `${l.name} สมัครใหม่`;
+    case 'member-rename': return `${l.from} เปลี่ยนชื่อเป็น ${l.to}`;
+    default: return l.type;
+  }
+}
+
+/* ---- prices (read-only) ---- */
+function viewPrices() {
+  let h = `<h1>ราคาของ</h1><p class="lead">ของแต่ละชิ้นใช้กี่แต้ม</p>`;
+  let last = '';
+  CAT_ORDER.forEach(cat => ITEMS.filter(it => it.cat === cat).forEach(it => {
+    if (CAT_LABEL[cat] !== last) { h += `<h2>${CAT_LABEL[cat]}</h2>`; last = CAT_LABEL[cat]; }
+    h += `<div class="card row-between" style="padding:10px 14px"><div class="item" style="grid-template-columns:44px 1fr;align-items:center">${iconHtml(it.id, true)}<div><b>${esc(it.name)}</b><div class="item-type">${esc(it.type)}${jobsText(it) ? ' · ' + esc(jobsText(it)) : ''}</div></div></div>
+      <span class="price">${price(it.id)} แต้ม</span></div>`;
+  }));
+  return h;
+}
+
+/* ---- demo panel ---- */
+function renderDemo() {
+  const opts = sortedMembers().map(m => `<option value="${m.id}" ${UI.demoPick === m.id ? 'selected' : ''}>${esc(m.name)} · ${esc(m.job)} · ${m.points} แต้ม</option>`).join('');
+  document.getElementById('demo').innerHTML = `<div class="wrap"><h2>🧪 ส่วนทดลอง (DEMO)</h2>
+    <div class="card"><label class="big-label" for="demo-who">ลองเป็นคนอื่น (ไม่ต้องใส่รหัส)</label>
+      <select id="demo-who" data-change="demo-pick"><option value="">เลือกคน</option>${opts}</select>
+      <div class="mt">${UI.demoPick ? `<button class="btn btn-primary btn-block" data-act="demo-as">เป็นคนนี้</button>` : disabledBtn('เป็นคนนี้', 'เลือกคนก่อน')}</div></div>
+    <div class="card"><p>ตอนนี้มีแค่รายชื่อกับแต้ม · ทุกคนยังไม่ได้ตั้งรหัส (เลือกชื่อแล้วตั้งรหัสเองได้เลย) · ยังไม่มีตี้ ไม่มีของในคลัง</p>
+      <p>เปิด 2 แท็บ เลือกคนละคน จะเห็นการเข้าตี้และการจองเปลี่ยนทันที</p>
+      <button class="btn btn-outline-red btn-block" data-act="demo-reset">ล้างข้อมูลทดลอง เริ่มใหม่</button></div></div>`;
+}
+
+/* =====================================================================
+   8) ROLL ANIMATION + DISCORD TEXT
+   ===================================================================== */
+function neckText(p) {
+  const o = p.neckOrder;
+  return `📿 ลำดับเก็บสร้อยฮอล — ${partyName(p.id)}\n` + o.order.map((id, i) => `${i + 1}) ${nameOf(id)} (${o.points[id]} แต้ม)`).join('\n') + (o.ties ? '\n(คนแต้มเท่ากัน สุ่มลำดับแล้ว)' : '');
+}
+function tieText(t, where) {
+  return `🎲 แต้มเท่ากัน สุ่ม ${shortName(t.itemId)} — ${where}\nคนลุ้น: ${t.pool.map(id => `${nameOf(id)} (${t.points[id]} แต้ม)`).join(', ')}\n🎉 ได้: ${nameOf(t.order[0])}`;
+}
+function resultText(p) {
+  const R = p.result;
+  return `🐉 สรุป${partyName(p.id)} (Horntail)\n` +
+    (R.awards.length ? R.awards.map(a => `✅ ${shortName(a.itemId)} → ${nameOf(a.memberId)} ${a.kind === 'free' ? '(แจกฟรี)' : `(-${a.price})`}`).join('\n') : 'ไม่มีใครได้ของ') +
+    (R.toVault.length ? `\n📦 เข้าคลัง: ${R.toVault.map(shortName).join(', ')}` : '') +
+    `\n📊 แต้ม: ` + keys(R.pointsAfter).map(id => `${nameOf(id)} ${R.pointsBefore[id]}→${R.pointsAfter[id]}`).join(', ');
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast('คัดลอกแล้ว ✓ ไปวางใน Discord ได้เลย');
+}
+
+/** show the slot animation to everyone on the party page when a new roll appears */
+function checkNewRolls() {
+  const r = route(); if (r.name !== 'party' && r.name !== 'result') return;
+  const p = DB.parties[r.pid]; if (!p) return;
+  const fresh = [];
+  if (p.locked) fresh.push({ key: `${p.id}:lock:${p.locked.at}`, at: p.locked.at, kind: 'lock', pid: p.id });
+  if (p.neckOrder && p.neckOrder.ties) fresh.push({ key: `${p.id}:neck:${p.neckOrder.at}`, at: p.neckOrder.at, title: 'ลำดับเก็บสร้อยฮอล (แต้มเท่ากัน สุ่มแล้ว)', order: p.neckOrder.order, text: () => neckText(DB.parties[p.id]) });
+  vals(p.tieRolls).forEach(t => fresh.push({ key: `${p.id}:tie:${t.id}`, at: t.at, title: `แต้มเท่ากัน สุ่ม: ${shortName(t.itemId)}`, order: [t.order[0]], pool: t.pool, text: () => tieText(t, partyName(p.id)) }));
+  vals(DB.vault).forEach(v => vals(v.rolls).filter(t => t.partyId === p.id).forEach(t => fresh.push({ key: `vault:${v.id}:${t.id}`, at: t.at, title: `ของในคลัง แต้มเท่ากัน สุ่ม: ${shortName(t.itemId)}`, order: [t.order[0]], pool: t.pool, text: () => tieText(t, 'คลังของ') })));
+  fresh.forEach(f => { if (UI.seenRolls.has(f.key)) return; UI.seenRolls.add(f.key); if (f.at >= UI.loadedAt) UI.rollQueue.push(f); });
+  playNext();
+}
+/** shown once to everyone on the party page when the opener locks bookings */
+function lockPopup(f) {
+  const p = DB.parties[f.pid], mid = meId(), mine = p && mid ? myBookings(p, mid) : [];
+  const o = p && p.neckOrder;
+  openModal(`<div class="lock-pop">🔒</div><h2 style="text-align:center">ปิดจองแล้ว · ลงบอสได้เลย</h2>
+    <div class="modal-body">${mid && p && p.members[mid] ? (mine.length ? `<b>ของที่คุณจอง:</b> ${mine.map(id => esc(shortName(id))).join(', ')}` : 'คุณไม่ได้จองของรอบนี้') : ''}
+    ${o ? `<div class="mt"><b>ลำดับเก็บสร้อยฮอล:</b>${orderHtml(o.order, id => ` <span class="muted">· ${o.points[id]} แต้ม</span>`)}</div>` : ''}
+    <p class="note">จองเพิ่ม ยกเลิก หรือเปลี่ยนไม่ได้แล้ว</p></div>
+    <button class="btn btn-primary btn-lg btn-block" id="lock-ok">รับทราบ</button>`);
+  modalRoot.querySelector('#lock-ok').onclick = () => { closeModal(); UI.rolling = false; playNext(); };
+}
+function playNext() {
+  if (UI.rolling || !UI.rollQueue.length) return;
+  UI.rolling = true; const f = UI.rollQueue.shift();
+  if (f.kind === 'lock') return lockPopup(f);
+  const names = f.order.map(nameOf), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  openModal(`<h2>${esc(f.title)}</h2><div class="reel" id="reel">…</div><ol class="order" id="roll-list"></ol>
+    <div class="stack mt" id="roll-btns" style="display:none"><button class="btn btn-outline btn-lg btn-block" id="roll-copy">คัดลอกผลไป Discord</button><button class="btn btn-primary btn-lg btn-block" id="roll-close">ปิด</button></div>`);
+  const reel = modalRoot.querySelector('#reel'), ol = modalRoot.querySelector('#roll-list');
+  const finish = () => {
+    modalRoot.querySelector('#roll-btns').style.display = '';
+    modalRoot.querySelector('#roll-copy').onclick = () => copyText(f.text());
+    modalRoot.querySelector('#roll-close').onclick = () => { closeModal(); UI.rolling = false; playNext(); };
+  };
+  const reveal = k => {
+    const single = names.length === 1;
+    if (k >= names.length) { reel.textContent = single ? `${names[0]} ได้!` : `ที่ 1: ${names[0]}`; reel.classList.add('done'); return finish(); }
+    const pool = single && f.pool && f.pool.length > 1 ? f.pool.map(nameOf) : names.slice(k); let t = 0; const total = reduce || f.noSpin ? 0 : (k === 0 ? 1800 : 600);   // single winner: spin through everyone who wanted it
+    const tick = () => {
+      if (t >= total) {
+        reel.textContent = single ? `${names[k]} ได้!` : `ที่ ${k + 1}: ${names[k]}`;
+        if (!single) ol.insertAdjacentHTML('beforeend', `<li class="${k === 0 ? 'first' : ''}"><span class="rank">${k + 1}.</span><span>${esc(names[k])}</span></li>`);
+        return setTimeout(() => reveal(k + 1), reduce ? 0 : 450);
+      }
+      reel.textContent = pool[Math.floor(rand() * pool.length)];
+      const step = 60 + (t / total) * 160; t += step; setTimeout(tick, step);
+    };
+    tick();
+  };
+  reveal(0);
+}
+
+/* =====================================================================
+   9) RENDER + EVENTS
+   ===================================================================== */
+const VIEWS = { home: viewHome, party: viewParty, result: viewResult, me: viewMe, points: viewPoints, vault: viewVault, history: viewHistory, prices: viewPrices, rules: viewRules };
+function render() {
+  if (BOOT.error) { document.getElementById('app').innerHTML = `<h1>ต่อไม่ติด</h1><div class="card red"><p>${esc(BOOT.error)}</p><p class="muted">ลองโหลดหน้าใหม่ ถ้ายังไม่ได้ให้บอกคนดูแลเว็บ</p></div>`; return; }
+  if (!DB) return;
+  if (!IS_DEMO && !keys(DB.members).length) { renderTopbar(); document.getElementById('app').innerHTML = viewSetup(); document.getElementById('demo').innerHTML = ''; return; }
+  if (!me() && !UI.login && route().name === 'home') {   // gate: home page needs name + PIN; other pages ask only when acting
+    const last = ls.get('htloot-last'), ok = last && DB.members[last];
+    UI.login = { step: ok ? 'pin' : 'pick', memberId: ok ? last : null, then: null };
+  }
+  const a = document.activeElement, fid = a && a.id && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') ? a.id : null, sel = fid ? [a.selectionStart, a.selectionEnd] : null;
+  renderTopbar();
+  const r = route();
+  let html;
+  try { html = UI.login ? viewLogin() : (VIEWS[r.name] || (() => `<h1>ไม่เจอหน้านี้</h1><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`))(r); }
+  catch (e) {   // never leave the old page on screen silently
+    console.error(e);
+    html = `<h1>หน้านี้เปิดไม่ได้</h1><div class="card red"><p>มีข้อมูลบางอย่างผิดรูปแบบ (${esc(e.message)})</p><p class="muted">ลองกลับหน้าแรก ถ้ายังเป็นอีกให้บอกคนดูแลเว็บ${IS_DEMO ? ' · ใน demo กด "ล้างข้อมูลทดลอง" ด้านล่าง' : ''}</p></div><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
+  }
+  if (!UI.login && r.name !== 'home' && !html.includes('data-act="home"')) html += `<button class="btn btn-outline btn-block mt2" data-act="home">กลับหน้าแรก</button>`;
+  const app = document.getElementById('app'); app.innerHTML = html;
+  app.classList.toggle('wide', r.name === 'party' && !UI.login);
+  if (IS_DEMO) renderDemo(); else document.getElementById('demo').innerHTML = '';
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); try { el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
+  else if (UI.login && UI.login.step === 'pin') { const el = document.getElementById('pin-in'); if (el) el.focus(); }
+  checkNewRolls();
+}
+
+
+const ACT = {
+  'toast-close': () => document.getElementById('toast').classList.remove('show'),
+  home: () => { UI.login = null; go('#/'); },
+  go: el => { UI.login = null; go(el.dataset.to); },
+  login: () => requireMe(() => {}),
+  'switch-user': () => { ss.set('htloot-me', null); UI.login = { step: 'pick', then: null }; render(); window.scrollTo(0, 0); },
+  'login-pick': el => { UI.login.memberId = el.dataset.id; UI.login.step = 'pin'; UI.login.error = ''; UI.login.pin = ''; render(); },
+  'login-repick': () => { UI.login.step = 'pick'; UI.login.error = ''; render(); },
+  'login-cancel': () => { UI.login = null; render(); },
+  'rename-toggle': () => { UI.renameOpen = !UI.renameOpen; UI.renameText = UI.renameOpen && me() ? me().name : ''; render(); if (UI.renameOpen) { const el = document.getElementById('rename-in'); if (el) { el.focus(); el.select(); } } },
+  'rename-save': async () => {
+    const m = me(), to = UI.renameText.replace(/\s+/g, ' ').trim();
+    if (!(await confirmBox({ title: 'เปลี่ยนชื่อ?', body: `<b>${esc(m.name)}</b> → <b>${esc(to)}</b><br>แต้มและประวัติยังอยู่ครบ`, ok: 'เปลี่ยนชื่อ' }))) return;
+    await run(() => Api.rename(m.id, to), `เปลี่ยนชื่อเป็น ${to} แล้ว ✓`);
+    if (me() && me().name === to) { UI.renameOpen = false; UI.renameText = ''; render(); }
+  },
+  register: async () => {
+    const id = await run(() => Api.register(UI.reg), 'สมัครแล้ว ✓ ตั้งรหัสต่อได้เลย');
+    if (id) { UI.reg = { name: '', job: '' }; UI.login = { step: 'pin', memberId: id, then: UI.login && UI.login.then }; render(); window.scrollTo(0, 0); }
+  },
+  'menu-toggle': () => { UI.menuOpen = !UI.menuOpen; render(); },
+  'reg-toggle': () => { UI.regOpen = !UI.regOpen; if (UI.regOpen && !UI.reg.name) UI.reg.name = UI.loginSearch.trim(); render(); if (UI.regOpen) { const el = document.getElementById('reg-name'); if (el) el.focus(); } },
+  'do-import': async () => {
+    const r = parseImport(UI.importText || ''); if (r.errors.length) return toast(r.errors[0], 'err');
+    if (!(await confirmBox({ title: `นำเข้า ${r.list.length} คน?`, body: `${r.rounds.length ? `พร้อมรอบเก่า ${r.rounds.length} รอบ (ทุกคนที่ลง +1 แต้ม)<br>` : ''}ทำได้ครั้งเดียว ถ้าผิดต้องไปแก้ใน Firebase`, ok: 'นำเข้า', okClass: 'btn-success' }))) return;
+    await run(() => Api.importInitial(r.list, r.rounds), `นำเข้า ${r.list.length} คนแล้ว ✓`); UI.importText = ''; go('#/');
+  },
+  'pin-set': async () => { const L = UI.login; await run(() => Api.setPin(L.memberId, L.pin)); if (DB.members[L.memberId].pinHash) { toast('ตั้งรหัสแล้ว ✓'); signIn(L.memberId); } },
+  'go-me': () => requireMe(() => go('#/me')),
+  'new-party': () => requireMe(async () => {
+    if (!(await confirmBox({ title: 'เปิดตี้ใหม่?', body: 'คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งให้เพื่อนใน Discord<br>คนเปิดตี้เป็นคนกดเริ่ม ปิดจองก่อนลงบอส และบันทึกผลหลังลงบอส', ok: 'เปิดตี้ใหม่' }))) return;
+    const id = await run(() => Api.createParty(meId()), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
+  }),
+  join: el => {
+    const pid = route().pid, g = Number(el.dataset.g || 0);
+    requireMe(async () => { const p = DB.parties[pid]; if (p && p.members[meId()]) return render(); await run(() => Api.join(pid, meId(), g), () => `เข้าปาร์ตี้ ${groupOf(DB.parties[pid], meId())} แล้ว ✓`); go('#' + pid); });
+  },
+  'move-me': el => { const g = Number(el.dataset.g); run(() => Api.move(route().pid, meId(), g, meId()), `ย้ายมาปาร์ตี้ ${g} แล้ว ✓`); },
+  'move-who': el => {
+    const p = DB.parties[route().pid], id = el.dataset.id, cur = groupOf(p, id);
+    const btns = []; for (let g = 1; g <= groupCount(p); g++) { const n = groupMembers(p, g).length, ok = g !== cur && n < GROUP_SIZE;
+      btns.push(`<button class="btn btn-block ${ok ? 'btn-outline' : ''}" data-act="move-to" data-id="${id}" data-g="${g}" ${ok ? '' : 'disabled'}>ปาร์ตี้ ${g} (${n}/${GROUP_SIZE})${g === cur ? ' · อยู่ตอนนี้' : n >= GROUP_SIZE ? ' · เต็ม' : ''}</button>`); }
+    openModal(`<h2>ย้าย ${esc(nameOf(id))} ไปปาร์ตี้ไหน?</h2><div class="stack">${btns.join('')}<button class="btn btn-outline-red btn-block btn-lg" data-act="modal-close">ยกเลิก</button></div>`);
+  },
+  'move-to': el => { closeModal(); const g = Number(el.dataset.g); run(() => Api.move(route().pid, el.dataset.id, g, meId()), `ย้าย ${nameOf(el.dataset.id)} ไปปาร์ตี้ ${g} แล้ว ✓`); },
+  'group-add': () => run(() => Api.addGroup(route().pid, meId()), 'เพิ่มปาร์ตี้แล้ว ✓'),
+  'group-remove': () => run(() => Api.removeGroup(route().pid, meId()), 'ลบปาร์ตี้แล้ว ✓'),
+  leave: async () => { const pid = route().pid; if (await confirmBox({ title: 'ออกจากตี้นี้?', ok: 'ออกจากตี้', okClass: 'btn-danger', cancel: 'ไม่ออก' })) run(() => Api.leave(pid, meId()), 'ออกจากตี้แล้ว ✓'); },
+  'copy-link': () => copyText(partyLink(route().pid)),
+  start: async () => {
+    const pid = route().pid, p = DB.parties[pid];
+    if (!(await confirmBox({ title: 'เริ่มตี้?', body: `ตี้นี้มี ${keys(p.members).length} คน · ทุกคนได้ 1 แต้ม<br>เริ่มแล้วรับคนเพิ่มไม่ได้ และทุกคนจองของได้เลย`, ok: 'เริ่มตี้' }))) return;
+    run(() => Api.start(pid, meId()), 'เริ่มตี้แล้ว ✓ ทุกคนจองของได้เลย');
+  },
+  filter: el => { UI.filter = el.dataset.v; render(); },
+  book: async el => {
+    const pid = route().pid, id = Number(el.dataset.item), m = me(), p = DB.parties[pid];
+    const total = bookedTotal(DB, p, m.id) + price(id), n = myBookings(p, m.id).length + 1;
+    const ok = await confirmBox({
+      title: `จอง ${esc(shortName(id))}?`, ok: 'จองเลย',
+      body: `<div class="item">${iconHtml(id)}<div><div class="item-name">${esc(itemOf(id).name)}</div><span class="price">${price(id)} แต้ม</span></div></div>
+        <p class="mt">จองแล้วจะเป็นชิ้นที่ ${n}/${MAX_BOOK} · จองรวม ${total} จาก ${m.points} แต้ม</p><p class="muted">ตอนนี้ยังไม่หักแต้ม ได้ของจริงถึงจะหัก · หลายคนจอง แต้มมากสุดได้</p>`,
+    });
+    if (ok) run(() => Api.book(pid, m.id, id), `จอง${thName(id)}แล้ว ✓`);
+  },
+  unbook: async el => {
+    const pid = route().pid, id = Number(el.dataset.item);
+    if (await confirmBox({ title: `ยกเลิกจอง ${esc(shortName(id))}?`, ok: 'ยกเลิกจอง', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' })) run(() => Api.unbook(pid, meId(), id), 'ยกเลิกจองแล้ว ✓');
+  },
+  lock: async () => {
+    const pid = route().pid, p = DB.parties[pid], nb = bookersOf(p, NECK);
+    const body = `<p>จองแล้ว ${bookingCount(p)} ชิ้น · ปิดแล้วไม่มีใครจอง ยกเลิก หรือเปลี่ยนได้อีก</p>` +
+      (nb.length ? `<p class="mt"><b>สร้อยฮอล เรียงตามแต้ม:</b></p>${rankHtml(ptsList(nb))}<p class="note">แต้มเท่ากันจะสุ่มตอนกด · ทุกคนในตี้เห็นผลพร้อมกัน</p>` : '');
+    if (await confirmBox({ title: 'ปิดจอง · ลงบอส?', body, ok: 'ปิดจองเลย' })) run(() => Api.lock(pid, meId()), 'ปิดจองแล้ว ✓ ลงบอสได้เลย');
+  },
+  'copy-neck': () => copyText(neckText(DB.parties[route().pid])),
+  'tie-roll': async el => {
+    const p = DB.parties[route().pid], id = Number(el.dataset.id), info = computeResult(p, getDraft(p)).items[id];
+    if (!info || !info.tie) return render();
+    if (await confirmBox({ title: `สุ่ม ${esc(shortName(id))}?`, body: `<p>แต้มเท่ากัน (${info.tiePts} แต้ม): ${namesOf(info.tie)}</p><p class="mt muted">โอกาสเท่ากันทุกคน · สุ่มแล้วแก้ไม่ได้ · ทุกคนที่เปิดหน้าตี้อยู่จะเห็นตอนสุ่ม</p>`, ok: 'สุ่มเลย' }))
+      run(() => Api.tieRoll(p.id, id, info.tie, info.tiePts, meId()));
+  },
+  'copy-result': el => copyText(resultText(DB.parties[el.dataset.pid])),
+  // result draft
+  cnt: el => { const d = getDraft(DB.parties[route().pid]), b = d.booked[el.dataset.id] = d.booked[el.dataset.id] || { count: 0, picks: [] }; b.count = Math.max(0, Math.min(5, b.count + Number(el.dataset.d))); b.picks.length = b.count; render(); },
+  drop: el => {
+    const d = getDraft(DB.parties[route().pid]), id = el.dataset.id, old = d.booked[id] || {};
+    d.booked[id] = { drop: el.dataset.v === '1', declined: old.declined || [] }; render();
+  },
+  decline: el => { const d = getDraft(DB.parties[route().pid]), b = d.booked[el.dataset.id]; b.declined = [...(b.declined || []), el.dataset.m]; render(); },
+  undecline: el => { const d = getDraft(DB.parties[route().pid]); d.booked[el.dataset.id].declined = []; render(); },
+  pick: el => { const d = getDraft(DB.parties[route().pid]), b = d.booked[el.dataset.item]; b.picks[Number(el.dataset.i)] = el.dataset.v; render(); },
+  extra: el => { const d = getDraft(DB.parties[route().pid]); const n = (d.extras[el.dataset.id] || 0) + Number(el.dataset.d); if (n <= 0) delete d.extras[el.dataset.id]; else d.extras[el.dataset.id] = Math.min(10, n); render(); },
+  'extra-add': el => { const d = getDraft(DB.parties[route().pid]); d.extras[el.dataset.id] = 1; UI.extraSearch = ''; toast(`เพิ่ม ${shortName(el.dataset.id)} แล้ว ✓`); render(); },
+  'cancel-party': async () => {
+    const pid = route().pid, p = DB.parties[pid], nb = bookingCount(p);
+    if (await confirmBox({ title: 'ยกเลิกตี้นี้?', body: `${esc(partyName(pid))} · ${keys(p.members).length} คน<br>ไม่มีใครได้แต้ม${nb ? ` · ของที่จองไว้ ${nb} ชิ้นยกเลิกหมด` : ''}<br><b>ยกเลิกแล้วย้อนกลับไม่ได้</b>`, ok: 'ยกเลิกตี้', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' }))
+      run(() => Api.cancel(pid, meId()), 'ยกเลิกตี้แล้ว ✓');
+  },
+  kick: async el => {
+    const pid = route().pid, id = el.dataset.id;
+    if (await confirmBox({ title: `เอา ${esc(nameOf(id))} ออกจากตี้?`, body: 'เขาจะไม่ได้แต้มรอบนี้ · ถ้ายังจะลง ให้เขากดเข้าตี้ใหม่ได้ก่อนกดเริ่มตี้', ok: 'เอาออก', okClass: 'btn-danger', cancel: 'ไม่เอาออก' }))
+      run(() => Api.kick(pid, id, meId()), `เอา ${nameOf(id)} ออกแล้ว ✓`);
+  },
+  'confirm-result': async () => {
+    const p = DB.parties[route().pid], c = computeResult(p, getDraft(p));
+    if (c.problems.length) return toast(c.problems[0], 'err');
+    if (!(await confirmBox({ title: 'ยืนยันผลตี้นี้?', body: resultSummaryHtml(p, c) + '<p class="mt reason">กดแล้วแต้มเปลี่ยนทันที แก้กลับในเว็บไม่ได้</p>', ok: 'ยืนยันผล', okClass: 'btn-success' }))) return;
+    await run(() => Api.confirmResult(p.id, meId(), c), 'บันทึกผลแล้ว ✓');
+    if (DB.parties[p.id].status === 'done') { delete UI.drafts[p.id]; go('#' + p.id); }
+  },
+  // vault (requests on vault page, actions by party opener on party page)
+  'vault-request': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ขอ ${esc(shortName(v.itemId))}?`, body: `ราคา ${price(v.itemId)} แต้ม · ตอนนี้ยังไม่หักแต้ม<br>ได้ของตอนมีตี้กำลังเล่น · ถ้ามีคนขอหลายคน แต้มมากสุดได้`, ok: 'ขอเลย' })) run(() => Api.vaultRequest(v.id, meId()), `ขอ${thName(v.itemId)}แล้ว ✓`); },
+  'vault-cancel': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ยกเลิกที่ขอ ${esc(shortName(v.itemId))}?`, ok: 'ยกเลิกที่ขอ', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' })) run(() => Api.vaultCancel(v.id, meId()), 'ยกเลิกแล้ว ✓'); },
+  'vault-tie': async el => {
+    const v = DB.vault[el.dataset.id], top = vaultTop(DB, v); if (!top || !top.tie) return render();
+    if (await confirmBox({ title: `สุ่ม ${esc(shortName(v.itemId))}?`, body: `<p>แต้มเท่ากัน (${DB.members[top.tie[0]].points} แต้ม): ${namesOf(top.tie)}</p><p class="mt muted">โอกาสเท่ากันทุกคน · สุ่มแล้วแก้ไม่ได้ · ทุกคนในตี้เห็นผลพร้อมกัน</p>`, ok: 'สุ่มเลย' }))
+      run(() => Api.vaultTieRoll(v.id, route().pid, meId()));
+  },
+  'vault-deliver': async el => {
+    const v = DB.vault[el.dataset.id], m = DB.members[el.dataset.m], pr = price(v.itemId);
+    if (await confirmBox({ title: 'ส่งของแล้วใช่ไหม?', body: `เทรดในเกมก่อน แล้วค่อยกด<br>${esc(shortName(v.itemId))} → <b>${esc(m.name)}</b><br>แต้ม ${esc(m.name)}: ${m.points} → <b>${m.points - pr}</b>`, ok: 'ใช่ ส่งแล้ว', okClass: 'btn-success' }))
+      run(() => Api.vaultDeliver(v.id, m.id, route().pid, meId()), `ส่ง${thName(v.itemId)}ให้ ${m.name} แล้ว ✓`);
+  },
+  'vault-decline': async el => {
+    const v = DB.vault[el.dataset.id], name = nameOf(el.dataset.m);
+    if (await confirmBox({ title: `${esc(name)} ไม่รับ?`, body: 'ที่เขาขอไว้จะถูกยกเลิก แล้วให้คนถัดไป', ok: 'ใช่ ให้คนถัดไป' })) run(() => Api.vaultDecline(v.id, el.dataset.m, route().pid, meId()), 'ให้คนถัดไปแล้ว ✓');
+  },
+  'modal-close': () => closeModal(),
+  'hist-toggle': el => { const p = el.dataset.id, cur = UI.openHist[p] ?? (vals(DB.parties).filter(x => x.status === 'done').sort((a, b) => b.doneAt - a.doneAt)[0].id === p); UI.openHist[p] = !cur; render(); },
+  // demo
+  'demo-as': () => { const id = UI.demoPick; if (!DB.members[id]) return; UI.login = null; ss.set('htloot-me', id); ls.set('htloot-last', id); toast(`ตอนนี้คุณคือ ${DB.members[id].name} ✓`); render(); window.scrollTo(0, 0); },
+  'demo-reset': async () => {
+    if (!(await confirmBox({ title: 'ล้างข้อมูลทดลอง?', body: 'ข้อมูลทดลองในเครื่องนี้จะกลับเป็นแบบเริ่มต้น', ok: 'ล้างข้อมูล', okClass: 'btn-danger', cancel: 'ไม่ล้าง' }))) return;
+    UI.drafts = {}; UI.seenRolls.clear(); UI.loadedAt = Date.now(); ss.set('htloot-me', null); UI.login = null;
+    await run(() => Api.resetDemo(), 'ล้างข้อมูลทดลองแล้ว ✓'); go('#/');
+  },
+};
+
+const INPUT = {
+  search: el => { UI.search = el.value; render(); },
+  'extra-search': el => { UI.extraSearch = el.value; render(); },
+  'board-search': el => { UI.boardSearch = el.value; render(); },
+  reg: el => { UI.reg.name = el.value; render(); },
+  rename: el => { UI.renameText = el.value; render(); },
+  'login-search': el => { UI.loginSearch = el.value; render(); },
+  import: el => { UI.importText = el.value; clearTimeout(UI.importT); UI.importT = setTimeout(render, 400); },
+  'pin-new': el => { el.value = el.value.replace(/\D/g, '').slice(0, 4); UI.login.pin = el.value; UI.login.error = ''; render(); },
+  'pin-login': el => {
+    el.value = el.value.replace(/\D/g, '').slice(0, 4); if (el.value.length < 4) return;
+    const L = UI.login, m = DB.members[L.memberId];
+    if (m.pinHash === hashPin(m.id, el.value)) signIn(m.id); else { L.error = 'รหัสไม่ถูก ลองใหม่'; render(); }
+  },
+};
+const CHANGE = {
+  'board-job': el => { UI.boardJob = el.value; render(); },
+  'reg-job': el => { UI.reg.job = el.value; render(); },
+  'demo-pick': el => { UI.demoPick = el.value; render(); },
+};
+
+document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.disabled) return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
+document.addEventListener('input', e => { const fn = INPUT[e.target.dataset.input]; if (fn) fn(e.target); });
+document.addEventListener('change', e => { const fn = CHANGE[e.target.dataset.change]; if (fn) fn(e.target); });
+window.addEventListener('hashchange', () => { UI.login = null; render(); window.scrollTo(0, 0); });
+
+/* boot */
+const BOOT = { error: null, online: null };
+/** RTDB drops empty objects/arrays → restore the shape the UI expects */
+function normalize(snap) {
+  const d = snap || {};
+  ['members', 'parties', 'vault', 'log', 'prices'].forEach(k => { d[k] = d[k] || {}; });
+  vals(d.parties).forEach(p => {
+    p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1;
+    keys(p.bookings).forEach(mid => { const b = p.bookings[mid]; if (b == null || typeof b !== 'object') p.bookings[mid] = b == null ? {} : { [b]: 0 }; });   // old 1-item shape
+    vals(p.tieRolls).forEach(r => { r.order = r.order || []; r.pool = r.pool || []; r.points = r.points || {}; });
+    if (p.neckOrder) { p.neckOrder.order = p.neckOrder.order || []; p.neckOrder.points = p.neckOrder.points || {}; }
+    if (p.result) ['awards', 'toVault', 'finishers'].forEach(k => { p.result[k] = p.result[k] || []; }), ['pointsBefore', 'pointsAfter'].forEach(k => { p.result[k] = p.result[k] || {}; });
+  });
+  vals(d.vault).forEach(v => { v.requests = v.requests || {}; v.rolls = v.rolls || {}; vals(v.rolls).forEach(r => { r.order = r.order || []; r.pool = r.pool || []; r.points = r.points || {}; }); });
+  return d;
+}
+(async () => {
+  try {
+    if (!backend) {
+      document.getElementById('app').innerHTML = '<p class="lead mt2">กำลังเชื่อมต่อ…</p>';
+      backend = await createFirebaseBackend(FIREBASE_CONFIG, on => { BOOT.online = on; if (DB) renderTopbar(); });
+    }
+    backend.subscribe(snap => {
+      if (IS_DEMO && (!snap || !snap.members)) { Api.resetDemo(); return; }  // demo first run → seed mock data
+      DB = normalize(snap); render();
+    }, err => { BOOT.error = 'อ่านข้อมูลไม่ได้ (' + (err && err.code || err) + ')'; render(); });
+  } catch (e) {
+    console.error(e); BOOT.error = 'เชื่อมต่อฐานข้อมูลไม่ได้ (' + (e && (e.code || e.message) || e) + ')'; render();
+  }
+})();
+</script>
+</body>
+</html>

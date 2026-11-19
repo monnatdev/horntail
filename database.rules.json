@@ -1,0 +1,15 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null && newData.exists()",
+    "members": {
+      "$mid": {
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30" },
+        "points": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+      }
+    },
+    "prices": {
+      "$item": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+    }
+  }
+}
