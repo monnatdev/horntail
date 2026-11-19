@@ -426,6 +426,7 @@ const priceIn = (db, id) => { const p = db.prices && db.prices[id]; return p != 
 const jobOk = (item, job) => !item.jobs || item.jobs.includes(job);
 const MAX_BOOK = 3;   // bookings per member per party (total price ≤ points)
 const GROUP_SIZE = 6, MAX_GROUPS = 5;   // in-game parties inside one run (loot/points are shared by the whole run)
+const isLive = p => !!p && (p.status === 'open' || p.status === 'started');
 const groupOf = (p, mid) => (p.slots && p.slots[mid]) || 1;
 const groupMembers = (p, g) => keys(p.members).filter(id => groupOf(p, id) === g).sort((a, b) => p.members[a] - p.members[b]);
 const groupCount = p => p.groupCount || 1;
@@ -515,7 +516,7 @@ const Api = {
       all = all || {}; const now = Date.now(); let n = 1;
       while (all[partyIdOf(now, n)]) n++;
       id = partyIdOf(now, n);
-      all[id] = { id, createdAt: now, createdBy: mid, status: 'open', members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1 };
+      all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1 };   // join + book right away
       return all;
     });
     return id;
@@ -525,7 +526,7 @@ const Api = {
   async join(pid, mid, g = 0) {
     await backend.transaction(`parties/${pid}`, p => {
       if (!p) throw new UErr('ไม่พบตี้นี้');
-      if (p.status !== 'open') throw new UErr('ตี้นี้เริ่มไปแล้ว เข้าไม่ได้');
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว'); if (p.locked) throw new UErr('ปิดจองแล้ว เข้าตี้ไม่ได้');
       p.members = p.members || {}; p.slots = p.slots || {};
       if (p.members[mid]) throw new UErr('คุณอยู่ในตี้นี้แล้ว');
       g = g || freeGroup(p);
@@ -541,9 +542,9 @@ const Api = {
     await backend.transaction(`parties/${pid}`, p => {
       if (!p || !p.members || !p.members[mid]) throw new UErr('ไม่พบคนนี้ในตี้');
       const isOwner = p.createdBy === actorId;
-      if (p.status === 'open') { if (actorId !== mid && !isOwner) throw new UErr('ย้ายได้แค่ตัวเอง'); }
-      else if (p.status === 'started') { if (!isOwner) throw new UErr('ตี้เริ่มแล้ว คนเปิดตี้เท่านั้นที่ย้ายคนได้'); }
-      else throw new UErr('ตี้นี้จบแล้ว');
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
+      if (!p.locked) { if (actorId !== mid && !isOwner) throw new UErr('ย้ายได้แค่ตัวเอง'); }
+      else if (!isOwner) throw new UErr('ปิดจองแล้ว คนเปิดตี้เท่านั้นที่ย้ายคนได้');
       if (g < 1 || g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
       if (groupOf(p, mid) === g) return p;
       if (groupMembers(p, g).length >= GROUP_SIZE) throw new UErr(`ปาร์ตี้ ${g} เต็มแล้ว`);
@@ -571,21 +572,12 @@ const Api = {
 
   async leave(pid, mid) {
     await backend.transaction(`parties/${pid}`, p => {
-      if (!p || p.status !== 'open') throw new UErr('ตี้เริ่มแล้ว ออกไม่ได้');
+      if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว ออกจากตี้ไม่ได้');
       if (p.createdBy === mid) throw new UErr('คนเปิดตี้ออกไม่ได้');
-      delete p.members[mid]; if (p.slots) delete p.slots[mid]; return p;
+      delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
     });
   },
 
-  /** lock the member list (vault is NOT rolled here any more) */
-  async start(pid, actorId) {
-    await backend.transaction(`parties/${pid}`, p => {
-      ownerCheck(p, actorId);
-      if (p.status !== 'open') throw new UErr('ตี้นี้เริ่มไปแล้ว');
-      p.status = 'started'; p.startedAt = Date.now();
-      return p;
-    });
-  },
 
   /** opener cancels a party that hasn't been recorded yet → nobody gets points, bookings are dropped */
   async cancel(pid, actorId) {
@@ -601,16 +593,16 @@ const Api = {
   async kick(pid, mid, actorId) {
     await backend.transaction(`parties/${pid}`, p => {
       ownerCheck(p, actorId);
-      if (p.status !== 'open') throw new UErr('ตี้เริ่มแล้ว เอาคนออกไม่ได้');
+      if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว เอาคนออกไม่ได้');
       if (mid === p.createdBy) throw new UErr('เอาคนเปิดตี้ออกไม่ได้');
-      delete p.members[mid]; if (p.slots) delete p.slots[mid]; return p;
+      delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
     });
   },
 
   async book(pid, mid, itemId) {
     await backend.transaction('', root => {
       const p = root.parties[pid], m = root.members[mid];
-      if (!p || p.status !== 'started') throw new UErr('ตอนนี้ยังจองไม่ได้');
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว จองไม่ได้');
       if (p.locked) throw new UErr('ปิดจองแล้ว (ลงบอสแล้ว)');
       if (!p.members[mid]) throw new UErr('คุณไม่ได้อยู่ในตี้นี้');
       const e = canBook(root, p, m, itemId); if (!e.ok) throw new UErr(e.reason);
@@ -623,7 +615,7 @@ const Api = {
     await backend.transaction(`parties/${pid}`, p => {
       const b = p && p.bookings && p.bookings[mid];
       if (!b || b[itemId] == null) throw new UErr('คุณไม่ได้จองชิ้นนี้');
-      if (p.status !== 'started') throw new UErr('ตี้นี้จบแล้ว');
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
       if (p.locked) throw new UErr('ปิดจองแล้ว (ลงบอสแล้ว) ยกเลิกไม่ได้');
       delete b[itemId]; if (!keys(b).length) delete p.bookings[mid]; return p;
     });
@@ -634,9 +626,9 @@ const Api = {
   async lock(pid, actorId) {
     await backend.transaction('', root => {
       const p = root.parties[pid]; ownerCheck(p, actorId);
-      if (p.status !== 'started') throw new UErr('ตี้นี้ปิดจองไม่ได้');
+      if (!isLive(p)) throw new UErr('ตี้นี้ปิดจองไม่ได้');
       if (p.locked) throw new UErr('ปิดจองไปแล้ว');
-      const now = Date.now(); p.locked = { at: now, by: actorId };
+      const now = Date.now(); p.locked = { at: now, by: actorId }; p.status = 'started';   // also closes the member list
       const ids = bookersOf(p, NECK);
       if (ids.length) {
         const pts = Object.fromEntries(ids.map(id => [id, root.members[id] ? root.members[id].points : 0]));
@@ -651,7 +643,7 @@ const Api = {
   async tieRoll(pid, itemId, pool, pts, actorId) {
     await backend.transaction('', root => {
       const p = root.parties[pid]; ownerCheck(p, actorId);
-      if (p.status !== 'started') throw new UErr('ตี้นี้สุ่มไม่ได้แล้ว');
+      if (!isLive(p)) throw new UErr('ตี้นี้สุ่มไม่ได้แล้ว');
       if (!p.locked) throw new UErr('ต้องปิดจองก่อน');
       if (pool.length < 2) throw new UErr('ต้องมี 2 คนขึ้นไปถึงจะสุ่ม');
       const bk = bookersOf(p, itemId); if (!pool.every(id => bk.includes(id))) throw new UErr('มีคนที่ไม่ได้จองชิ้นนี้');
@@ -665,7 +657,7 @@ const Api = {
   async confirmResult(pid, actorId, res) {
     await backend.transaction('', root => {
       const p = root.parties[pid]; ownerCheck(p, actorId);
-      if (p.status !== 'started') throw new UErr('ตี้นี้บันทึกผลไปแล้ว');
+      if (!isLive(p)) throw new UErr('ตี้นี้บันทึกผลไปแล้ว');
       const ids = new Set([...keys(p.members), ...res.awards.map(a => a.memberId)]);
       const before = {}, after = {};
       ids.forEach(id => { if (root.members[id]) before[id] = after[id] = root.members[id].points; });
@@ -699,7 +691,7 @@ const Api = {
   async vaultTieRoll(vid, pid, actorId) {
     await backend.transaction('', root => {
       const p = root.parties[pid]; ownerCheck(p, actorId);
-      if (p.status !== 'started') throw new UErr('ทำได้ตอนตี้กำลังเล่นเท่านั้น');
+      if (!isLive(p)) throw new UErr('ทำได้ตอนตี้กำลังเล่นเท่านั้น');
       const v = root.vault && root.vault[vid]; if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง');
       const top = vaultTop(root, v); if (!top || !top.tie) throw new UErr('ไม่มีคนแต้มเท่ากันแล้ว');
       v.rolls = v.rolls || {}; const id = newId('t', 6);
@@ -711,7 +703,7 @@ const Api = {
   async vaultDeliver(vid, mid, pid, actorId) {
     await backend.transaction('', root => {
       const p = root.parties[pid]; ownerCheck(p, actorId);
-      if (p.status !== 'started') throw new UErr('ส่งของได้ตอนตี้กำลังเล่นเท่านั้น');
+      if (!isLive(p)) throw new UErr('ส่งของได้ตอนตี้กำลังเล่นเท่านั้น');
       const v = root.vault && root.vault[vid], m = root.members[mid];
       if (!v || !m) throw new UErr('ไม่พบข้อมูล');
       const top = vaultTop(root, v);
@@ -832,7 +824,7 @@ const iconHtml = (id, sm) => `<div class="icon${sm ? ' sm' : ''}"><img src="${ic
 const disabledBtn = (label, reason, cls = '') => `<button class="btn btn-block ${cls}" disabled>${label}</button><p class="reason">${esc(reason)}</p>`;
 const jobsText = it => (it.jobs ? it.jobs.join(', ') : it.cat === 'book' ? 'ทุกอาชีพ' : '');
 /** the started party I opened (for vault actions) */
-const myRunningParty = () => vals(DB.parties).find(p => p.status === 'started' && p.createdBy === meId());
+const myRunningParty = () => vals(DB.parties).find(p => isLive(p) && p.createdBy === meId());
 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
@@ -991,7 +983,7 @@ function viewSetup() {
 
 const cancelBtnHtml = () => `<div class="mt2" style="text-align:center"><button class="link-btn" data-act="cancel-party">ยกเลิกตี้นี้</button><p class="note">เช่น คนไม่ครบ ไม่ได้ลง · ยกเลิกแล้วไม่มีใครได้แต้ม</p></div>`;
 function partyStatus(p) {
-  return p.status === 'open' ? '<span class="pill blue">รอคนเข้า</span>' : p.status === 'started' ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">กำลังจองของ</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill gray">จบแล้ว</span>';
+  return isLive(p) ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">เปิดรับคน · จองของได้</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill gray">จบแล้ว</span>';
 }
 
 function viewHome() {
@@ -1044,7 +1036,7 @@ function viewRules() {
     <li>เทรดในเกมแล้ว หัวตี้กด "ส่งแล้ว" ถึงจะหักแต้ม</li>
   </ol></div>
   <h2>หัวตี้ทำอะไร</h2><div class="card rules"><ol>
-    <li>เริ่มตี้ · ยกเลิกตี้ · เอาคนออก (ก่อนเริ่มตี้)</li>
+    <li>เปิดตี้ (เพื่อนเข้าตี้และจองของได้ทันที) · ยกเลิกตี้ · เอาคนออก (ก่อนปิดจอง)</li>
     <li>ปิดจองก่อนลงบอส · กดสุ่มเมื่อแต้มเท่ากัน · บันทึกผล · ส่งของในคลัง</li>
   </ol></div>`;
 }
@@ -1096,7 +1088,7 @@ function neckSectionHtml(p, isOwner, m) {
 
 /* ---- roster split into in-game parties (max 6 each) ---- */
 function rosterHtml(p, m, isOwner) {
-  const open = p.status === 'open', live = open || p.status === 'started', n = groupCount(p);
+  const live = isLive(p), open = live && !p.locked, n = groupCount(p);
   const myG = m && p.members[m.id] ? groupOf(p, m.id) : 0;
   let h = `<h2>คนในตี้ (${keys(p.members).length}) · ${n} ปาร์ตี้</h2><p class="sec-sub">ปาร์ตี้ละไม่เกิน ${GROUP_SIZE} คน ไว้จัดตี้ในเกม · แต้มและการจองคิดรวมทั้งรอบ</p><div class="groups">`;
   for (let g = 1; g <= n; g++) {
@@ -1127,19 +1119,6 @@ function viewParty(r) {
   const memberIds = keys(p.members).sort((a, b) => p.members[a] - p.members[b]);
   let h = `<h1>${esc(partyName(p.id))}</h1><p class="lead">${partyStatus(p)} · ${p.imported ? 'นำเข้าจากระบบเก่า' : esc(nameOf(p.createdBy)) + ' เป็นคนเปิด'} · ${memberIds.length} คน</p>`;
 
-  if (p.status === 'open') {
-    if (!isMember) h += freeGroup(p) ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="muted mt">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · กดแล้วเลือกชื่อ ใส่รหัส ก็เข้าได้เลย</p>`
-      : `<div class="card red"><b>ทุกปาร์ตี้เต็มแล้ว</b> · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
-    else if (!isOwner) h += `<div class="card green"><b class="card-title">คุณอยู่ในตี้นี้แล้ว ✓</b><p class="muted" style="margin:0">รอ ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดเริ่ม แล้วค่อยจองของ</p></div>`;
-    if (isOwner) h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body">
-      <button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งให้เพื่อนใน Discord</button>
-      <button class="btn btn-primary btn-lg btn-block" data-act="start">คนมาครบแล้ว · เริ่มตี้ (${memberIds.length} คน)</button>
-      <p class="note">เริ่มแล้วจะรับคนเพิ่มไม่ได้ และทุกคนจองของได้เลย</p></div></div>`;
-    h += rosterHtml(p, m, isOwner);
-    if (isMember && !isOwner) h += `<div class="mt2"><button class="btn btn-outline-red btn-block" data-act="leave">ออกจากตี้</button></div>`;
-    if (isOwner) h += cancelBtnHtml();
-    return h;
-  }
   if (p.status === 'cancelled') return h + `<div class="card red"><b class="card-title">ตี้นี้ยกเลิกแล้ว</b><p class="muted">${p.cancelledAt ? fmtDate(p.cancelledAt) + ' · ' : ''}ไม่มีใครได้แต้ม ของที่จองไว้ยกเลิกหมด</p></div><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
 
   if (p.status === 'done') return h + partyDoneHtml(p) + deliveredHtml(p);
@@ -1158,15 +1137,18 @@ function viewParty(r) {
     if (p.locked) h += `<p class="note">ปิดจองแล้ว (ลงบอส) · เปลี่ยนไม่ได้แล้ว</p>`;
     else if (!mine.length) h += `<p>เลื่อนลงไป แล้วกด <b>"จองชิ้นนี้"</b> ที่ของที่อยากได้ · จองได้ถึงตอนหัวตี้กด "ปิดจอง"</p>`;
     h += `</div>`;
-  } else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ตี้เริ่มไปแล้ว ดูได้อย่างเดียว</div>`;
+  } else if (!p.locked) h += freeGroup(p) ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="note">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · ${m ? 'เข้าแล้วจองของได้เลย' : 'กดแล้วเลือกชื่อ ใส่รหัส'}</p>`
+      : `<div class="card red"><b>ทุกปาร์ตี้เต็มแล้ว</b> · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
+  else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ปิดจองแล้ว ดูได้อย่างเดียว</div>`;
   else h += `<div class="card blue"><b>ถ้าคุณอยู่ในตี้นี้</b> กด "เลือกชื่อ" ด้านบนก่อน</div>`;
 
   if (isOwner) h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body">
     ${p.locked ? `<p class="note" style="margin:0 0 10px">✓ ปิดจองแล้ว ${fmtDate(p.locked.at)}</p>
     <button class="btn btn-primary btn-lg btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
     <p class="note">บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้</p>`
-    : `<button class="btn btn-primary btn-lg btn-block" data-act="lock">ปิดจอง · ลงบอส</button>
-    <p class="note">กดก่อนลงบอส: ล็อกการจองทุกชิ้น และเรียงลำดับสร้อยตามแต้ม (เท่ากันสุ่ม)</p>
+    : `<button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งให้เพื่อนใน Discord</button>
+    <button class="btn btn-primary btn-lg btn-block" data-act="lock">คนครบแล้ว · ปิดจอง · ลงบอส</button>
+    <p class="note">กดก่อนลงบอส: ปิดรับคน ล็อกการจองทุกชิ้น และเรียงลำดับสร้อยตามแต้ม (เท่ากันสุ่ม)</p>
     <button class="btn btn-outline btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
     <p class="note">ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้าบันทึกผล</p>`}</div></div>`;
   else h += `<p class="note">${p.locked ? 'ปิดจองแล้ว · ' : `จองได้ถึงตอน ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดปิดจองก่อนลงบอส · `}ลงบอสจบแล้ว คนเปิดตี้จะบันทึกว่าใครได้อะไร</p>`;
@@ -1202,13 +1184,14 @@ function viewParty(r) {
     h += itemCard(p, it, m);
   }));
   if (openGrid) h += '</div>';
+  if (isMember && !isOwner && !p.locked) h += `<div class="mt2"><button class="btn btn-outline-red btn-block" data-act="leave">ออกจากตี้</button></div>`;
   if (isOwner) h += cancelBtnHtml();
   return h;
 }
 
 /* ---- vault section on the party page (opener runs it) ---- */
 function vaultSectionHtml(p, isOwner) {
-  if (p.status !== 'started') return '';
+  if (!isLive(p)) return '';
   const items = vals(DB.vault).filter(v => keys(v.requests).length);
   if (!items.length) return '';
   let h = `<h2>ของในคลังที่มีคนขอ (${items.length})</h2><p class="muted">แต้มมากสุดได้ · แต้มเท่ากัน หัวตี้กดสุ่ม${isOwner ? ' · เทรดในเกมก่อน แล้วค่อยกด "ส่งแล้ว"' : ' · คนเปิดตี้เป็นคนส่งของ'}</p>`;
@@ -1319,7 +1302,6 @@ function viewResult(r) {
   if (p.createdBy !== meId()) return `<h1>บันทึกผล</h1><div class="card red">คนเปิดตี้ (${esc(nameOf(p.createdBy))}) เท่านั้นที่บันทึกผลได้</div>${back}`;
   if (p.status === 'done') return `<h1>ตี้นี้บันทึกผลไปแล้ว</h1>${back}`;
   if (p.status === 'cancelled') return `<h1>ตี้นี้ยกเลิกแล้ว</h1>${back}`;
-  if (p.status === 'open') return `<h1>ตี้ยังไม่เริ่ม</h1><p class="lead">กด "เริ่มตี้" ก่อน</p>${back}`;
   if (!p.locked) {   // opener skipped "ปิดจอง" → lock now, once
     if (!UI.autoLock[p.id]) { UI.autoLock[p.id] = true; setTimeout(() => run(() => Api.lock(p.id, meId()), 'ปิดจองให้อัตโนมัติแล้ว ✓ ไม่มีใครจองเพิ่มได้'), 0); }
     return `<h1>บันทึกผล</h1><p class="lead">กำลังปิดจอง…</p>${back}`;
@@ -1649,7 +1631,7 @@ const ACT = {
   'pin-set': async () => { const L = UI.login; await run(() => Api.setPin(L.memberId, L.pin)); if (DB.members[L.memberId].pinHash) { toast('ตั้งรหัสแล้ว ✓'); signIn(L.memberId); } },
   'go-me': () => requireMe(() => go('#/me')),
   'new-party': () => requireMe(async () => {
-    if (!(await confirmBox({ title: 'เปิดตี้ใหม่?', body: 'คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งให้เพื่อนใน Discord<br>คนเปิดตี้เป็นคนกดเริ่ม ปิดจองก่อนลงบอส และบันทึกผลหลังลงบอส', ok: 'เปิดตี้ใหม่' }))) return;
+    if (!(await confirmBox({ title: 'เปิดตี้ใหม่?', body: 'คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งให้เพื่อนใน Discord<br>เปิดแล้วเพื่อนเข้าตี้และจองของได้เลย · คนเปิดตี้กดปิดจองก่อนลงบอส และบันทึกผลหลังลงบอส', ok: 'เปิดตี้ใหม่' }))) return;
     const id = await run(() => Api.createParty(meId()), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
   }),
   join: el => {
@@ -1668,11 +1650,6 @@ const ACT = {
   'group-remove': () => run(() => Api.removeGroup(route().pid, meId()), 'ลบปาร์ตี้แล้ว ✓'),
   leave: async () => { const pid = route().pid; if (await confirmBox({ title: 'ออกจากตี้นี้?', ok: 'ออกจากตี้', okClass: 'btn-danger', cancel: 'ไม่ออก' })) run(() => Api.leave(pid, meId()), 'ออกจากตี้แล้ว ✓'); },
   'copy-link': () => copyText(partyLink(route().pid)),
-  start: async () => {
-    const pid = route().pid, p = DB.parties[pid];
-    if (!(await confirmBox({ title: 'เริ่มตี้?', body: `ตี้นี้มี ${keys(p.members).length} คน · ทุกคนได้ 1 แต้ม<br>เริ่มแล้วรับคนเพิ่มไม่ได้ และทุกคนจองของได้เลย`, ok: 'เริ่มตี้' }))) return;
-    run(() => Api.start(pid, meId()), 'เริ่มตี้แล้ว ✓ ทุกคนจองของได้เลย');
-  },
   filter: el => { UI.filter = el.dataset.v; render(); },
   book: async el => {
     const pid = route().pid, id = Number(el.dataset.item), m = me(), p = DB.parties[pid];
@@ -1692,7 +1669,7 @@ const ACT = {
     const pid = route().pid, p = DB.parties[pid], nb = bookersOf(p, NECK);
     const body = `<p>จองแล้ว ${bookingCount(p)} ชิ้น · ปิดแล้วไม่มีใครจอง ยกเลิก หรือเปลี่ยนได้อีก</p>` +
       (nb.length ? `<p class="mt"><b>สร้อยฮอล เรียงตามแต้ม:</b></p>${rankHtml(ptsList(nb))}<p class="note">แต้มเท่ากันจะสุ่มตอนกด · ทุกคนในตี้เห็นผลพร้อมกัน</p>` : '');
-    if (await confirmBox({ title: 'ปิดจอง · ลงบอส?', body, ok: 'ปิดจองเลย' })) run(() => Api.lock(pid, meId()), 'ปิดจองแล้ว ✓ ลงบอสได้เลย');
+    if (await confirmBox({ title: 'ปิดจอง · ลงบอส?', body: `<p>ตี้นี้มี ${keys(p.members).length} คน · ทุกคนได้ 1 แต้มตอนบันทึกผล · ปิดแล้วรับคนเพิ่มไม่ได้</p>` + body, ok: 'ปิดจองเลย' })) run(() => Api.lock(pid, meId()), 'ปิดจองแล้ว ✓ ลงบอสได้เลย');
   },
   'copy-neck': () => copyText(neckText(DB.parties[route().pid])),
   'tie-roll': async el => {
@@ -1720,7 +1697,7 @@ const ACT = {
   },
   kick: async el => {
     const pid = route().pid, id = el.dataset.id;
-    if (await confirmBox({ title: `เอา ${esc(nameOf(id))} ออกจากตี้?`, body: 'เขาจะไม่ได้แต้มรอบนี้ · ถ้ายังจะลง ให้เขากดเข้าตี้ใหม่ได้ก่อนกดเริ่มตี้', ok: 'เอาออก', okClass: 'btn-danger', cancel: 'ไม่เอาออก' }))
+    if (await confirmBox({ title: `เอา ${esc(nameOf(id))} ออกจากตี้?`, body: 'เขาจะไม่ได้แต้มรอบนี้ ของที่เขาจองจะถูกยกเลิก · ถ้ายังจะลง ให้เขากดเข้าตี้ใหม่ได้ก่อนปิดจอง', ok: 'เอาออก', okClass: 'btn-danger', cancel: 'ไม่เอาออก' }))
       run(() => Api.kick(pid, id, meId()), `เอา ${nameOf(id)} ออกแล้ว ✓`);
   },
   'confirm-result': async () => {
