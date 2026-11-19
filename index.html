@@ -175,6 +175,16 @@ table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;ba
 
 .rules ol{padding-left:22px;font-size:15px;margin:0}.rules li{margin-bottom:8px}.rules li:last-child{margin-bottom:0}
 
+/* item filter tabs */
+.filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
+.filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.ftab{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:8px 12px;border-radius:12px;border:2px solid var(--line2);background:#fff;color:var(--text2);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.ftab:hover{border-color:var(--blue)}
+.ftab.on{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 3px 10px rgba(15,27,61,.25)}
+.ftab .cnt{display:inline-flex;min-width:26px;justify-content:center;padding:0 7px;border-radius:999px;font-size:13px;background:var(--gray-l);color:var(--text2)}
+.ftab.on .cnt{background:var(--gold2);color:var(--navy)}
+.filter-note{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--amber-l);border:1px solid var(--amber-b);color:var(--amber-t);border-radius:12px;padding:8px 12px;font-size:14px;margin-bottom:12px}
+
 /* party groups */
 .groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));align-items:start;margin-bottom:12px}
 .groups .card{margin:0}
@@ -1171,11 +1181,19 @@ function viewParty(r) {
   // item list
   h += `<h2>ของทั้งหมด</h2>`;
   const canFilter = m && isMember;
-  if (canFilter) h += `<div class="seg"><button class="btn ${UI.filter === 'mine' ? 'btn-chosen' : 'btn-off'}" data-act="filter" data-v="mine">เฉพาะที่ฉันจองได้</button><button class="btn ${UI.filter === 'all' ? 'btn-chosen' : 'btn-off'}" data-act="filter" data-v="all">ดูทั้งหมด</button></div>`;
-  h += `<label class="big-label" for="item-search">ค้นหาของ</label><input id="item-search" type="search" data-input="search" placeholder="เช่น ring, berserk, สร้อย" value="${esc(UI.search)}">`;
   const q = UI.search.trim().toLowerCase();
-  let list = ITEMS.filter(it => !q || it.name.toLowerCase().includes(q) || (it.type || '').includes(q));
-  if (canFilter && UI.filter === 'mine') list = list.filter(it => myBookings(p, m.id).includes(it.id) || canBook(DB, p, m, it.id).ok);
+  const all = ITEMS.filter(it => !q || it.name.toLowerCase().includes(q) || (it.type || '').includes(q));
+  const mineOk = canFilter ? all.filter(it => myBookings(p, m.id).includes(it.id) || canBook(DB, p, m, it.id).ok) : all;
+  if (canFilter) {
+    const onMine = UI.filter === 'mine', hidden = all.length - mineOk.length;
+    h += `<p class="filter-label">แสดงของแบบไหน?</p><div class="filter-tabs">
+      <button class="ftab ${onMine ? 'on' : ''}" data-act="filter" data-v="mine" aria-pressed="${onMine}">${onMine ? '✓ ' : ''}เฉพาะที่ฉันจองได้ <span class="cnt">${mineOk.length}</span></button>
+      <button class="ftab ${!onMine ? 'on' : ''}" data-act="filter" data-v="all" aria-pressed="${!onMine}">${!onMine ? '✓ ' : ''}ดูทั้งหมด <span class="cnt">${all.length}</span></button></div>`;
+    if (onMine && hidden) h += `<div class="filter-note"><span>ซ่อนไว้ <b>${hidden} ชิ้น</b> ที่คุณยังจองไม่ได้ (แต้มไม่พอ · อาชีพไม่ตรง · จองครบแล้ว) เช่น สกิลบุ๊คใช้ ${DEFAULT_PRICE_BY_CAT.book} แต้ม</span>
+      <button class="btn btn-outline btn-sm" data-act="filter" data-v="all">ดูทั้งหมด</button></div>`;
+  }
+  h += `<label class="big-label" for="item-search">ค้นหาของ</label><input id="item-search" type="search" data-input="search" placeholder="เช่น ring, berserk, สร้อย" value="${esc(UI.search)}">`;
+  let list = canFilter && UI.filter === 'mine' ? mineOk : all;
   if (!list.length) h += `<div class="card mt">ไม่เจอของ${canFilter && UI.filter === 'mine' ? 'ที่คุณจองได้ (ลองกด "ดูทั้งหมด")' : ''}</div>`;
   let lastCat = '', openGrid = false;
   CAT_ORDER.forEach(cat => list.filter(it => it.cat === cat).forEach(it => {
