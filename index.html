@@ -893,7 +893,7 @@ function renderTopbar() {
     ? `<div class="whoami">คุณ: <b>${esc(m.name)}</b> · ${esc(m.job)} · มี <b class="pts">${m.points}</b> แต้ม ${neckBadge(m)}</div>`
     : `<div class="whoami">ยังไม่ได้เลือกชื่อ</div>`;
   const onGate = !m && UI.login && r.name === 'home';
-  if (m) h += `<div class="top-actions">${notHome ? `<button class="btn btn-outline" data-act="home">หน้าแรก</button>` : ''}<button class="btn btn-outline" data-act="switch-user">เปลี่ยนคน</button></div>`;
+  if (m) h += `<div class="top-actions">${notHome ? `<button class="btn btn-outline" data-act="home">หน้าแรก</button>` : ''}<button class="btn btn-outline" data-act="switch-user">ออกจากระบบ</button></div>`;
   else if (!onGate) h += `<div class="top-actions"><button class="btn btn-outline" data-act="home">หน้าแรก</button>${UI.login ? '' : '<button class="btn btn-primary" data-act="login">เลือกชื่อ</button>'}</div>`;
   if (!IS_DEMO && BOOT.online === false) h += `<div class="strip red">เน็ตหลุด กำลังต่อใหม่… ตอนนี้กดอะไรยังไม่บันทึก</div>`;
   h += '</div>';
@@ -1624,7 +1624,10 @@ const ACT = {
   home: () => { UI.login = null; go('#/'); },
   go: el => { UI.login = null; go(el.dataset.to); },
   login: () => requireMe(() => {}),
-  'switch-user': () => { ss.set('htloot-me', null); UI.login = { step: 'pick', then: null }; render(); window.scrollTo(0, 0); },
+  'switch-user': async () => {
+    if (!(await confirmBox({ title: 'ออกจากระบบ?', body: `ออกจากชื่อ <b>${esc(me() ? me().name : '')}</b> · ครั้งหน้าต้องเลือกชื่อแล้วใส่ PIN ใหม่<br>แต้มและของที่จองไว้ไม่หาย`, ok: 'ออกจากระบบ', okClass: 'btn-danger', cancel: 'ไม่ออก' }))) return;
+    ss.set('htloot-me', null); UI.login = { step: 'pick', then: null }; render(); window.scrollTo(0, 0); toast('ออกจากระบบแล้ว ✓');
+  },
   'login-pick': el => { UI.login.memberId = el.dataset.id; UI.login.step = 'pin'; UI.login.error = ''; UI.login.pin = ''; render(); },
   'login-repick': () => { UI.login.step = 'pick'; UI.login.error = ''; render(); },
   'login-cancel': () => { UI.login = null; render(); },
