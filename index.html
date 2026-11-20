@@ -77,7 +77,26 @@ b,strong{font-weight:700}
 .panel-body{padding:14px 16px}
 .panel-body>.btn+.btn,.panel-body>.btn+p+.btn{margin-top:10px}
 .note{font-size:13px;color:var(--text2);margin:6px 0 0}
-.sec-sub{font-size:14px;color:var(--text2);margin:-6px 0 12px}
+.sec-sub{font-size:14px;color:var(--text2);margin:-2px 0 12px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:8px 12px}
+main h2{display:flex;align-items:center;gap:8px}
+main h2::before{content:'';flex:none;width:4px;height:18px;border-radius:2px;background:var(--gold)}
+.mybook-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;margin-bottom:6px}
+.stat-chips{display:flex;gap:6px;flex-wrap:wrap}
+.stat-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 12px;font-size:14px;color:var(--text2)}
+.stat-chip b{color:var(--navy)}
+.mybook .note{margin-top:8px}
+.steps{display:grid;gap:14px}
+.step{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start}
+.step-no{width:28px;height:28px;border-radius:50%;background:var(--navy);color:var(--gold2);display:grid;place-items:center;font-weight:700;font-size:14px;margin-top:2px}
+.step.done .step-no{background:var(--green);color:#fff}
+.step-title{font-weight:700;font-size:15px;margin-bottom:6px;color:var(--navy)}
+.step.done .step-title{color:var(--green-t)}
+.step .note{margin:6px 0 0}
+.pill.done{background:var(--green-l);color:var(--green-t);border-color:var(--green-b)}
+.party-done{background:var(--bg2);box-shadow:none}
+.seat-no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--navy);color:var(--gold2);font-size:12px;font-weight:700;margin-right:6px;vertical-align:1px}
+.seat-wait{color:var(--text2);font-size:14px;font-style:italic}
+.seat-wait .seat-no{background:var(--gray-l);color:var(--text2)}
 .link-btn{background:none;border:0;padding:6px 0;font:inherit;font-size:14px;font-weight:600;color:var(--red-t);text-decoration:underline;cursor:pointer}
 .card.mine{border:2px solid var(--green)}
 .row-between{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
@@ -233,6 +252,7 @@ table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;ba
 .reel.done{border-color:var(--green-b);background:var(--green-l);color:var(--green-t)}
 
 /* demo panel */
+#demo:empty{display:none}
 #demo{margin-top:40px;background:var(--amber-l);border-top:1px dashed var(--gold);padding:6px 0 32px}
 #demo h2{margin-top:14px;color:var(--amber-t)}
 #demo .card{border-color:var(--amber-b);box-shadow:none}
@@ -440,8 +460,24 @@ const isLive = p => !!p && (p.status === 'open' || p.status === 'started');
 const groupOf = (p, mid) => (p.slots && p.slots[mid]) || 1;
 const groupMembers = (p, g) => keys(p.members).filter(id => groupOf(p, id) === g).sort((a, b) => p.members[a] - p.members[b]);
 const groupCount = p => p.groupCount || 1;
-/** first group with a free seat, or 0 when every group is full */
-function freeGroup(p) { for (let g = 1; g <= groupCount(p); g++) if (groupMembers(p, g).length < GROUP_SIZE) return g; return 0; }
+const SEAT_JOBS = ['Dark Knight', 'Bishop'];   // seat 1 / seat 2 of every in-game party are kept for these jobs
+const jobOfId = (db, id) => (db.members && db.members[id] ? db.members[id].job : '');
+/** seat layout of one party → { reserved: [dkId|null, bishopId|null], rest: [ids] } */
+function groupSeats(db, p, g, exceptId) {
+  const reserved = [null, null], rest = [];
+  groupMembers(p, g).filter(id => id !== exceptId).forEach(id => { const k = SEAT_JOBS.indexOf(jobOfId(db, id)); if (k >= 0 && !reserved[k]) reserved[k] = id; else rest.push(id); });
+  return { reserved, rest };
+}
+/** can someone with `job` take a seat in party g? → '' (ok) or the reason */
+function seatBlock(db, p, g, job, exceptId) {
+  const { reserved, rest } = groupSeats(db, p, g, exceptId), k = SEAT_JOBS.indexOf(job);
+  if (k >= 0 && !reserved[k]) return '';
+  if (rest.length < GROUP_SIZE - SEAT_JOBS.length) return '';
+  const open = SEAT_JOBS.filter((j, i) => !reserved[i]);
+  return open.length ? `ปาร์ตี้ ${g} เหลือแต่ที่ของ ${open.join(' / ')}` : `ปาร์ตี้ ${g} เต็มแล้ว`;
+}
+/** first party this job can enter, or 0 */
+function freeGroup(p, job = '', db = DB) { for (let g = 1; g <= groupCount(p); g++) if (!seatBlock(db, p, g, job)) return g; return 0; }
 
 /** can member reserve/request this item? (job + points) → {ok, reason} */
 function eligibility(db, member, itemId) {
@@ -524,7 +560,7 @@ const Api = {
     let id;
     await backend.transaction('parties', all => {   // atomic: two people opening at once get round N and N+1
       all = all || {}; const now = Date.now(); let n = 1;
-      while (all[partyIdOf(now, n)]) n++;
+      while (all[partyIdOf(now, n)] && all[partyIdOf(now, n)].status !== 'cancelled') n++;   // old cancelled ones don't count
       id = partyIdOf(now, n);
       all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1 };   // join + book right away
       return all;
@@ -534,31 +570,33 @@ const Api = {
 
   /** g = which in-game party (0 = first one with a free seat) */
   async join(pid, mid, g = 0) {
-    await backend.transaction(`parties/${pid}`, p => {
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid], job = jobOfId(root, mid);
       if (!p) throw new UErr('ไม่พบตี้นี้');
       if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว'); if (p.locked) throw new UErr('ปิดจองแล้ว เข้าตี้ไม่ได้');
       p.members = p.members || {}; p.slots = p.slots || {};
       if (p.members[mid]) throw new UErr('คุณอยู่ในตี้นี้แล้ว');
-      g = g || freeGroup(p);
-      if (!g) throw new UErr('ทุกปาร์ตี้เต็มแล้ว รอคนเปิดตี้เพิ่มปาร์ตี้');
+      g = g || freeGroup(p, job, root);
+      if (!g) throw new UErr('ทุกปาร์ตี้เต็มแล้ว (หรือเหลือแต่ที่ของ Dark Knight / Bishop) รอคนเปิดตี้เพิ่มปาร์ตี้');
       if (g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
-      if (groupMembers(p, g).length >= GROUP_SIZE) throw new UErr(`ปาร์ตี้ ${g} เต็มแล้ว`);
-      p.members[mid] = Date.now(); p.slots[mid] = g; return p;
+      const why = seatBlock(root, p, g, job); if (why) throw new UErr(why);
+      p.members[mid] = Date.now(); p.slots[mid] = g; return root;
     });
   },
 
   /** move to another in-game party: yourself before start, the opener any time before the result */
   async move(pid, mid, g, actorId) {
-    await backend.transaction(`parties/${pid}`, p => {
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid];
       if (!p || !p.members || !p.members[mid]) throw new UErr('ไม่พบคนนี้ในตี้');
       const isOwner = p.createdBy === actorId;
       if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
       if (!p.locked) { if (actorId !== mid && !isOwner) throw new UErr('ย้ายได้แค่ตัวเอง'); }
       else if (!isOwner) throw new UErr('ปิดจองแล้ว คนเปิดตี้เท่านั้นที่ย้ายคนได้');
       if (g < 1 || g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
-      if (groupOf(p, mid) === g) return p;
-      if (groupMembers(p, g).length >= GROUP_SIZE) throw new UErr(`ปาร์ตี้ ${g} เต็มแล้ว`);
-      p.slots = p.slots || {}; p.slots[mid] = g; return p;
+      if (groupOf(p, mid) === g) return root;
+      const why = seatBlock(root, p, g, jobOfId(root, mid), mid); if (why) throw new UErr(why);
+      p.slots = p.slots || {}; p.slots[mid] = g; return root;
     });
   },
   async addGroup(pid, actorId) {
@@ -595,7 +633,7 @@ const Api = {
       ownerCheck(p, actorId);
       if (p.status === 'done') throw new UErr('ตี้นี้บันทึกผลไปแล้ว ยกเลิกไม่ได้');
       if (p.status === 'cancelled') throw new UErr('ตี้นี้ยกเลิกไปแล้ว');
-      p.status = 'cancelled'; p.cancelledAt = Date.now(); return p;
+      return null;   // cancelled parties are removed: no points, no history, round number reused
     });
   },
 
@@ -993,18 +1031,19 @@ function viewSetup() {
 
 const cancelBtnHtml = () => `<div class="mt2" style="text-align:center"><button class="link-btn" data-act="cancel-party">ยกเลิกตี้นี้</button><p class="note">เช่น คนไม่ครบ ไม่ได้ลง · ยกเลิกแล้วไม่มีใครได้แต้ม</p></div>`;
 function partyStatus(p) {
-  return isLive(p) ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">เปิดรับคน · จองของได้</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill gray">จบแล้ว</span>';
+  return isLive(p) ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">เปิดรับคน · จองของได้</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill done">✓ จบแล้ว</span>';
 }
 
 function viewHome() {
-  const live = vals(DB.parties).filter(p => p.status === 'open' || p.status === 'started').sort((a, b) => b.createdAt - a.createdAt);
+  const today = ymd(Date.now());
+  const live = vals(DB.parties).filter(p => isLive(p) || (p.status === 'done' && !p.imported && ymd(p.doneAt || p.createdAt) === today)).sort((a, b) => (a.status === 'done') - (b.status === 'done') || b.createdAt - a.createdAt);
   const tile = (title, desc, attrs) => `<button class="tile" ${attrs}><span class="tile-title">${title}</span><span class="tile-desc">${desc}</span></button>`;
   return `<h1>จองของบอส Horntail</h1><p class="lead">เปิดตี้ ส่งลิงก์ให้เพื่อน แล้วจองของที่อยากได้ ระบบดูแต้มและนับแต้มให้</p>
     <div class="hero-actions">
       <button class="btn btn-primary btn-xl btn-block" data-act="new-party">เปิดตี้ใหม่</button>
       <button class="btn btn-outline btn-xl btn-block" data-act="go-me">ดูแต้มของฉัน</button>
     </div>
-    ${live.length ? `<h2>ตี้ที่เปิดอยู่</h2>` + live.map(p => `<div class="card row-between"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div></div>
+    ${live.length ? `<h2>ตี้วันนี้</h2>` + live.map(p => `<div class="card row-between ${p.status === 'done' ? 'party-done' : ''}"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div></div>
       <button class="btn btn-outline" data-act="go" data-to="#${p.id}">เข้าไปดู</button></div>`).join('') : ''}
     <button class="btn btn-outline btn-block mt2" data-act="menu-toggle" aria-expanded="${UI.menuOpen}">${UI.menuOpen ? 'ซ่อนเมนู ▴' : 'เมนูอื่นๆ (กติกา คลังของ ประวัติ) ▾'}</button>
     ${!UI.menuOpen ? '' : `<div class="menu-grid mt">
@@ -1102,19 +1141,22 @@ function rosterHtml(p, m, isOwner) {
   const myG = m && p.members[m.id] ? groupOf(p, m.id) : 0;
   let h = `<h2>คนในตี้ (${keys(p.members).length}) · ${n} ปาร์ตี้</h2><p class="sec-sub">ปาร์ตี้ละไม่เกิน ${GROUP_SIZE} คน ไว้จัดตี้ในเกม · แต้มและการจองคิดรวมทั้งรอบ</p><div class="groups">`;
   for (let g = 1; g <= n; g++) {
-    const ids = groupMembers(p, g), full = ids.length >= GROUP_SIZE;
+    const ids = groupMembers(p, g), seats = groupSeats(DB, p, g), myJob = m ? m.job : '', canIn = !seatBlock(DB, p, g, myJob), full = ids.length >= GROUP_SIZE;
     h += `<div class="card group"><div class="group-head"><b>ปาร์ตี้ ${g}</b><span class="muted">${ids.length}/${GROUP_SIZE} คน${myG === g ? ' · คุณอยู่ปาร์ตี้นี้' : ''}</span></div>`;
-    ids.forEach(id => {
+    const row = (id, seatNo) => {
       const mm = DB.members[id], bk = myBookings(p, id);
-      h += `<div class="mem ${m && id === m.id ? 'me' : ''}"><div class="mem-main"><b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
+      return `<div class="mem ${m && id === m.id ? 'me' : ''}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
         <div class="mem-pts">${mm ? mm.points : 0}<small> แต้ม</small></div>
         ${bk.length ? `<div class="mem-bk">${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : ''}
         ${isOwner && live ? `<div class="mem-act">${n > 1 ? `<button class="btn btn-outline btn-sm" data-act="move-who" data-id="${id}">ย้ายปาร์ตี้</button>` : ''}${open && id !== p.createdBy ? `<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>` : ''}</div>` : ''}</div>`;
-    });
-    if (!full && live) h += `<div class="slot">ว่าง ${GROUP_SIZE - ids.length} ที่</div>`;
-    if (open && m && !myG && !full) h += `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>`;
-    else if (open && !m && !full) h += `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>`;
-    else if (open && myG && myG !== g && !full) h += `<button class="btn btn-outline btn-block mt" data-act="move-me" data-g="${g}">ย้ายมาปาร์ตี้ ${g}</button>`;
+    };
+    SEAT_JOBS.forEach((job, k) => { h += seats.reserved[k] ? row(seats.reserved[k], k + 1) : (live ? `<div class="mem seat-wait"><div class="mem-main"><span class="seat-no">${k + 1}</span>รอ ${job}</div></div>` : ''); });
+    seats.rest.forEach(id => { h += row(id, 0); });
+    const freeAny = Math.max(0, GROUP_SIZE - SEAT_JOBS.length - seats.rest.length);
+    if (live && freeAny) h += `<div class="slot">ว่าง ${freeAny} ที่ (อาชีพไหนก็ได้)</div>`;
+    const joinBtn = canIn ? `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>` : '';
+    if (open && !myG) h += joinBtn || (m && !full ? `<p class="note">${esc(seatBlock(DB, p, g, myJob))}</p>` : '');
+    else if (open && myG && myG !== g && canIn) h += `<button class="btn btn-outline btn-block mt" data-act="move-me" data-g="${g}">ย้ายมาปาร์ตี้ ${g}</button>`;
     if (isOwner && live && g === n && n > 1 && !ids.length) h += `<button class="btn btn-outline-red btn-block mt" data-act="group-remove">ลบปาร์ตี้ ${g}</button>`;
     h += `</div>`;
   }
@@ -1124,7 +1166,7 @@ function rosterHtml(p, m, isOwner) {
 
 function viewParty(r) {
   const p = DB.parties[r.pid];
-  if (!p) return `<h1>ไม่เจอตี้นี้</h1><p class="lead">ลิงก์อาจผิด ลองขอลิงก์ใหม่จากคนเปิดตี้</p><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
+  if (!p) return `<h1>ไม่เจอตี้นี้</h1><p class="lead">ตี้นี้อาจถูกยกเลิกไปแล้ว หรือลิงก์ผิด ลองขอลิงก์ใหม่จากคนเปิดตี้</p><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
   const m = me(), isMember = m && p.members[m.id], isOwner = m && p.createdBy === m.id;
   const memberIds = keys(p.members).sort((a, b) => p.members[a] - p.members[b]);
   let h = `<h1>${esc(partyName(p.id))}</h1><p class="lead">${partyStatus(p)} · ${p.imported ? 'นำเข้าจากระบบเก่า' : esc(nameOf(p.createdBy)) + ' เป็นคนเปิด'} · ${memberIds.length} คน</p>`;
@@ -1137,43 +1179,42 @@ function viewParty(r) {
   if (p.locked) h += `<div class="lock-banner">🔒 <div><b>ปิดจองแล้ว · ลงบอสได้เลย</b><div>${fmtDate(p.locked.at)} · จองเพิ่ม ยกเลิก หรือเปลี่ยนไม่ได้แล้ว</div></div></div>`;
   if (m && isMember) {
     const mine = myBookings(p, m.id), used = bookedTotal(DB, p, m.id);
-    h += `<div class="card ${mine.length ? 'green' : 'blue'}"><b class="card-title">${mine.length ? `คุณจอง ${mine.length}/${MAX_BOOK} ชิ้น` : 'คุณยังไม่ได้จอง'}</b>
-      <p class="muted">จองรวม ${used} แต้ม · คุณมี ${m.points} แต้ม · จองได้สูงสุด ${MAX_BOOK} ชิ้น ราคารวมไม่เกินแต้มที่มี</p>`;
+    h += `<div class="card mybook ${mine.length ? 'green' : 'blue'}"><div class="mybook-head"><b class="card-title">การจองของคุณ</b>
+      <div class="stat-chips"><span class="stat-chip">จองแล้ว <b>${mine.length}/${MAX_BOOK}</b> ชิ้น</span><span class="stat-chip">ใช้ <b>${used}/${m.points}</b> แต้ม</span></div></div>`;
     mine.forEach(id => {
       const locked = p.locked;
       h += `<div class="list-row row-between"><div class="item" style="grid-template-columns:44px 1fr;align-items:center">${iconHtml(id, true)}<div><b>${esc(shortName(id))}</b> <span class="price">${price(id)} แต้ม</span></div></div>
         ${locked ? '<span class="muted">ปิดจองแล้ว</span>' : `<button class="btn btn-outline-red" data-act="unbook" data-item="${id}">ยกเลิก</button>`}</div>`;
     });
     if (p.locked) h += `<p class="note">ปิดจองแล้ว (ลงบอส) · เปลี่ยนไม่ได้แล้ว</p>`;
-    else if (!mine.length) h += `<p>เลื่อนลงไป แล้วกด <b>"จองชิ้นนี้"</b> ที่ของที่อยากได้ · จองได้ถึงตอนหัวตี้กด "ปิดจอง"</p>`;
+    else if (!mine.length) h += `<p class="note">👇 เลื่อนลงไปที่ "ของทั้งหมด" แล้วกด <b>จองชิ้นนี้</b> · จองได้จนหัวตี้กดปิดจอง</p>`;
     h += `</div>`;
-  } else if (!p.locked) h += freeGroup(p) ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="note">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · ${m ? 'เข้าแล้วจองของได้เลย' : 'กดแล้วเลือกชื่อ ใส่รหัส'}</p>`
-      : `<div class="card red"><b>ทุกปาร์ตี้เต็มแล้ว</b> · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
+  } else if (!p.locked) h += freeGroup(p, m ? m.job : '') ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="note">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · ${m ? 'เข้าแล้วจองของได้เลย' : 'กดแล้วเลือกชื่อ ใส่รหัส'}</p>`
+      : `<div class="card red"><b>ไม่มีที่ว่างสำหรับคุณ</b> · ทุกปาร์ตี้เต็ม หรือเหลือแต่ที่ของ Dark Knight / Bishop · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
   else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ปิดจองแล้ว ดูได้อย่างเดียว</div>`;
   else h += `<div class="card blue"><b>ถ้าคุณอยู่ในตี้นี้</b> กด "เลือกชื่อ" ด้านบนก่อน</div>`;
 
-  if (isOwner) h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body">
-    ${p.locked ? `<p class="note" style="margin:0 0 10px">✓ ปิดจองแล้ว ${fmtDate(p.locked.at)}</p>
-    <button class="btn btn-primary btn-lg btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
-    <p class="note">บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้</p>`
-    : `<button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งให้เพื่อนใน Discord</button>
-    <button class="btn btn-primary btn-lg btn-block" data-act="lock">คนครบแล้ว · ปิดจอง · ลงบอส</button>
-    <p class="note">กดก่อนลงบอส: ปิดรับคน ล็อกการจองทุกชิ้น และเรียงลำดับสร้อยตามแต้ม (เท่ากันสุ่ม)</p>
-    <button class="btn btn-outline btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button>
-    <p class="note">ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้าบันทึกผล</p>`}</div></div>`;
-  else h += `<p class="note">${p.locked ? 'ปิดจองแล้ว · ' : `จองได้ถึงตอน ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดปิดจองก่อนลงบอส · `}ลงบอสจบแล้ว คนเปิดตี้จะบันทึกว่าใครได้อะไร</p>`;
+  if (isOwner) {
+    const step = (no, title, body, done) => `<div class="step ${done ? 'done' : ''}"><span class="step-no">${done ? '✓' : no}</span><div class="step-main"><div class="step-title">${title}</div>${body}</div></div>`;
+    h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body steps">` +
+      step(1, 'ชวนเพื่อนเข้าตี้', p.locked ? '<p class="note">ปิดรับคนแล้ว</p>' : `<button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งใน Discord</button>`, p.locked) +
+      step(2, 'ก่อนลงบอส', p.locked ? `<p class="note">ปิดจองแล้ว ${fmtDate(p.locked.at)}</p>` : `<button class="btn btn-primary btn-lg btn-block" data-act="lock">คนครบแล้ว · ปิดจอง · ลงบอส</button><p class="note">ปิดรับคน ล็อกการจองทุกชิ้น เรียงลำดับสร้อยตามแต้ม</p>`, p.locked) +
+      step(3, 'หลังลงบอส', `<button class="btn ${p.locked ? 'btn-primary btn-lg' : 'btn-outline'} btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button><p class="note">${p.locked ? 'บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้' : 'ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้านี้'}</p>`, false) +
+      `</div></div>`;
+  }
+  else h += `<p class="sec-sub">${p.locked ? 'ปิดจองแล้ว · ' : `จองได้จน ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดปิดจองก่อนลงบอส · `}ลงบอสจบ คนเปิดตี้จะบันทึกว่าใครได้อะไร</p>`;
 
   h += rosterHtml(p, m, isOwner);
   if (bookersOf(p, NECK).length) h += neckSectionHtml(p, isOwner, m);
 
   // who booked what (ranked by points now; decided when the result is recorded)
   const booked = bookedItemIds(p).filter(id => id !== NECK).sort((a, b) => price(b) - price(a) || a - b);
-  h += `<h2>ใครจองอะไร</h2><p class="muted">ตัดสินตอนบันทึกผล: แต้มมากสุดได้ก่อน · ไล่จากของแพงไปถูก · ได้ชิ้นแรกแล้วแต้มลด · แต้มเท่ากัน หัวตี้กดสุ่ม</p>`;
+  h += `<h2>ใครจองอะไร</h2><p class="sec-sub">ตัดสินตอนบันทึกผล · แต้มมากสุดได้ก่อน · ไล่จากของแพงไปถูก · ได้ชิ้นแรกแล้วแต้มลด · แต้มเท่ากัน หัวตี้กดสุ่ม</p>`;
   if (!booked.length) h += `<div class="card">ยังไม่มีใครจอง</div>`;
   else h += `<div class="cards-grid">` + booked.map(id => `<div class="card"><div class="item">${iconHtml(id)}<div><div class="item-name">${esc(itemOf(id).name)}</div><span class="price">${price(id)} แต้ม</span></div></div>
       <div class="mt"><b>คนจอง (เรียงตามแต้มตอนนี้):</b>${rankHtml(ptsList(bookersOf(p, id)), m && m.id)}</div></div>`).join('') + `</div>`;
   const noBook = memberIds.filter(id => !myBookings(p, id).length);
-  if (noBook.length) h += `<p class="muted">ยังไม่จอง: ${noBook.map(id => esc(nameOf(id))).join(', ')}</p>`;
+  if (noBook.length) h += `<p class="sec-sub">ยังไม่จอง: ${noBook.map(id => esc(nameOf(id))).join(', ')}</p>`;
 
 
   h += vaultSectionHtml(p, isOwner) + deliveredHtml(p);
@@ -1543,7 +1584,7 @@ function checkNewRolls() {
   if (p.neckOrder && p.neckOrder.ties) fresh.push({ key: `${p.id}:neck:${p.neckOrder.at}`, at: p.neckOrder.at, title: 'ลำดับเก็บสร้อยฮอล (แต้มเท่ากัน สุ่มแล้ว)', order: p.neckOrder.order, text: () => neckText(DB.parties[p.id]) });
   vals(p.tieRolls).forEach(t => fresh.push({ key: `${p.id}:tie:${t.id}`, at: t.at, title: `แต้มเท่ากัน สุ่ม: ${shortName(t.itemId)}`, order: [t.order[0]], pool: t.pool, text: () => tieText(t, partyName(p.id)) }));
   vals(DB.vault).forEach(v => vals(v.rolls).filter(t => t.partyId === p.id).forEach(t => fresh.push({ key: `vault:${v.id}:${t.id}`, at: t.at, title: `ของในคลัง แต้มเท่ากัน สุ่ม: ${shortName(t.itemId)}`, order: [t.order[0]], pool: t.pool, text: () => tieText(t, 'คลังของ') })));
-  fresh.forEach(f => { if (UI.seenRolls.has(f.key)) return; UI.seenRolls.add(f.key); if (f.at >= UI.loadedAt) UI.rollQueue.push(f); });
+  fresh.forEach(f => { f.pid = p.id; if (UI.seenRolls.has(f.key)) return; UI.seenRolls.add(f.key); if (f.at >= UI.loadedAt) UI.rollQueue.push(f); });
   playNext();
 }
 /** shown once to everyone on the party page when the opener locks bookings */
@@ -1558,6 +1599,7 @@ function lockPopup(f) {
   modalRoot.querySelector('#lock-ok').onclick = () => { closeModal(); UI.rolling = false; playNext(); };
 }
 function playNext() {
+  const here = route().pid; UI.rollQueue = UI.rollQueue.filter(f => f.pid === here);   // only pop-ups for the party on screen
   if (UI.rolling || !UI.rollQueue.length) return;
   UI.rolling = true; const f = UI.rollQueue.shift();
   if (f.kind === 'lock') return lockPopup(f);
@@ -1661,9 +1703,9 @@ const ACT = {
   },
   'move-me': el => { const g = Number(el.dataset.g); run(() => Api.move(route().pid, meId(), g, meId()), `ย้ายมาปาร์ตี้ ${g} แล้ว ✓`); },
   'move-who': el => {
-    const p = DB.parties[route().pid], id = el.dataset.id, cur = groupOf(p, id);
-    const btns = []; for (let g = 1; g <= groupCount(p); g++) { const n = groupMembers(p, g).length, ok = g !== cur && n < GROUP_SIZE;
-      btns.push(`<button class="btn btn-block ${ok ? 'btn-outline' : ''}" data-act="move-to" data-id="${id}" data-g="${g}" ${ok ? '' : 'disabled'}>ปาร์ตี้ ${g} (${n}/${GROUP_SIZE})${g === cur ? ' · อยู่ตอนนี้' : n >= GROUP_SIZE ? ' · เต็ม' : ''}</button>`); }
+    const p = DB.parties[route().pid], id = el.dataset.id, cur = groupOf(p, id), job = jobOfId(DB, id);
+    const btns = []; for (let g = 1; g <= groupCount(p); g++) { const n = groupMembers(p, g).length, why = g === cur ? '' : seatBlock(DB, p, g, job, id), ok = g !== cur && !why;
+      btns.push(`<button class="btn btn-block ${ok ? 'btn-outline' : ''}" data-act="move-to" data-id="${id}" data-g="${g}" ${ok ? '' : 'disabled'}>ปาร์ตี้ ${g} (${n}/${GROUP_SIZE})${g === cur ? ' · อยู่ตอนนี้' : why ? ' · ' + esc(why.replace(`ปาร์ตี้ ${g} `, '')) : ''}</button>`); }
     openModal(`<h2>ย้าย ${esc(nameOf(id))} ไปปาร์ตี้ไหน?</h2><div class="stack">${btns.join('')}<button class="btn btn-outline-red btn-block btn-lg" data-act="modal-close">ยกเลิก</button></div>`);
   },
   'move-to': el => { closeModal(); const g = Number(el.dataset.g); run(() => Api.move(route().pid, el.dataset.id, g, meId()), `ย้าย ${nameOf(el.dataset.id)} ไปปาร์ตี้ ${g} แล้ว ✓`); },
@@ -1714,7 +1756,7 @@ const ACT = {
   'cancel-party': async () => {
     const pid = route().pid, p = DB.parties[pid], nb = bookingCount(p);
     if (await confirmBox({ title: 'ยกเลิกตี้นี้?', body: `${esc(partyName(pid))} · ${keys(p.members).length} คน<br>ไม่มีใครได้แต้ม${nb ? ` · ของที่จองไว้ ${nb} ชิ้นยกเลิกหมด` : ''}<br><b>ยกเลิกแล้วย้อนกลับไม่ได้</b>`, ok: 'ยกเลิกตี้', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' }))
-      run(() => Api.cancel(pid, meId()), 'ยกเลิกตี้แล้ว ✓');
+      { await run(() => Api.cancel(pid, meId()), 'ยกเลิกตี้แล้ว ✓'); if (!DB.parties[pid]) go('#/'); }
   },
   kick: async el => {
     const pid = route().pid, id = el.dataset.id;
