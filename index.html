@@ -201,6 +201,10 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 .cancelled-card{background:var(--bg2);box-shadow:none}
 .cancelled-card .muted{font-size:14px}
 
+.group-lead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px;padding:6px 0 8px;border-bottom:1px dashed var(--line)}
+.group-lead.none{color:var(--text2);font-style:italic}
+.mem.is-lead b{color:var(--navy)}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -467,6 +471,8 @@ const isLive = p => !!p && (p.status === 'open' || p.status === 'started');
 const groupOf = (p, mid) => (p.slots && p.slots[mid]) || 1;
 const groupMembers = (p, g) => keys(p.members).filter(id => groupOf(p, id) === g).sort((a, b) => p.members[a] - p.members[b]);
 const groupCount = p => p.groupCount || 1;
+const leaderOf = (p, g) => (p.leaders && p.leaders['g' + g]) || null;   // หัวตี้ย่อย of in-game party g
+const dropLeader = (p, mid) => { if (p.leaders) keys(p.leaders).forEach(k => { if (p.leaders[k] === mid) delete p.leaders[k]; }); };
 const SEAT_JOBS = ['Dark Knight', 'Bishop'];   // seat 1 / seat 2 of every in-game party are kept for these jobs
 const jobOfId = (db, id) => (db.members && db.members[id] ? db.members[id].job : '');
 /** seat layout of one party → { reserved: [dkId|null, bishopId|null], rest: [ids] } */
@@ -594,7 +600,7 @@ const Api = {
   },
 
   /** g = which in-game party (0 = first one with a free seat) */
-  async join(pid, mid, g = 0) {
+  async join(pid, mid, g = 0, lead = false) {
     await backend.transaction('', root => {
       const p = root.parties && root.parties[pid], job = jobOfId(root, mid);
       if (!p) throw new UErr('ไม่พบตี้นี้');
@@ -605,7 +611,9 @@ const Api = {
       if (!g) throw new UErr('ทุกปาร์ตี้เต็มแล้ว (หรือเหลือแต่ที่ของ Dark Knight / Bishop) รอคนเปิดตี้เพิ่มปาร์ตี้');
       if (g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
       const why = seatBlock(root, p, g, job); if (why) throw new UErr(why);
-      p.members[mid] = Date.now(); p.slots[mid] = g; return root;
+      p.members[mid] = Date.now(); p.slots[mid] = g;
+      if (lead && !leaderOf(p, g)) { p.leaders = p.leaders || {}; p.leaders['g' + g] = mid; }
+      return root;
     });
   },
 
@@ -621,7 +629,22 @@ const Api = {
       if (g < 1 || g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
       if (groupOf(p, mid) === g) return root;
       const why = seatBlock(root, p, g, jobOfId(root, mid), mid); if (why) throw new UErr(why);
-      p.slots = p.slots || {}; p.slots[mid] = g; return root;
+      dropLeader(p, mid); p.slots = p.slots || {}; p.slots[mid] = g; return root;
+    });
+  },
+  /** หัวตี้ย่อย: a member volunteers (if none yet) or steps down; the opener can set/clear anyone */
+  async setLeader(pid, g, mid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
+      const isOwner = p.createdBy === actorId, cur = leaderOf(p, g);
+      if (mid && (!p.members || !p.members[mid] || groupOf(p, mid) !== g)) throw new UErr('คนนี้ไม่ได้อยู่ปาร์ตี้นี้');
+      if (!isOwner) {
+        if (mid && (mid !== actorId || cur)) throw new UErr(cur ? 'ปาร์ตี้นี้มีหัวตี้ย่อยแล้ว' : 'ตั้งได้แค่ตัวเอง');
+        if (!mid && cur !== actorId) throw new UErr('คุณไม่ได้เป็นหัวตี้ย่อย');
+      }
+      p.leaders = p.leaders || {};
+      if (mid) p.leaders['g' + g] = mid; else delete p.leaders['g' + g];
+      return p;
     });
   },
   async addGroup(pid, actorId) {
@@ -647,7 +670,7 @@ const Api = {
     await backend.transaction(`parties/${pid}`, p => {
       if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว ออกจากตี้ไม่ได้');
       if (p.createdBy === mid) throw new UErr('คนเปิดตี้ออกไม่ได้');
-      delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
+      dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
     });
   },
 
@@ -672,7 +695,7 @@ const Api = {
       ownerCheck(p, actorId);
       if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว เอาคนออกไม่ได้');
       if (mid === p.createdBy) throw new UErr('เอาคนเปิดตี้ออกไม่ได้');
-      delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
+      dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
     });
   },
 
@@ -1096,26 +1119,26 @@ function viewRules() {
   <h2>จองของในตี้</h2><div class="card rules"><ol>
     <li>จองได้ <b>สูงสุด ${MAX_BOOK} ชิ้น</b> ราคารวมต้องไม่เกินแต้มที่มี</li>
     <li>สกิลบุ๊คกับอาวุธ จองได้เฉพาะอาชีพที่ใช้ได้</li>
-    <li>ยกเลิกหรือเปลี่ยนได้ จนกว่าหัวตี้จะกด <b>"ปิดจอง · ลงบอส"</b> (กดก่อนตีบอส เห็นของดรอปแล้วจองไม่ได้)</li>
+    <li>ยกเลิกหรือเปลี่ยนได้ จนกว่าคนเปิดตี้จะกด <b>"ปิดจอง · ลงบอส"</b> (กดก่อนตีบอส เห็นของดรอปแล้วจองไม่ได้)</li>
   </ol></div>
   <h2>ใครได้ของ</h2><div class="card rules"><ol>
     <li><b>แต้มมากสุดได้ก่อน</b></li>
     <li>ดรอปหลายชิ้น ไล่จากของแพงไปถูก ได้ชิ้นแรกแล้วแต้มลด ชิ้นต่อไปแข่งด้วยแต้มที่เหลือ<br>
       <span class="muted">ตัวอย่าง: เก้าอี้ 20 แต้ม + ดาบ 2 แต้มดรอป · A มี 30 จองทั้งคู่ · B มี 15 จองดาบ → A ได้เก้าอี้ (เหลือ 10) · ดาบ B ได้ เพราะ 15 มากกว่า 10</span></li>
-    <li>แต้มเท่ากัน → หัวตี้กดสุ่ม ทุกคนเห็นตอนสุ่ม</li>
+    <li>แต้มเท่ากัน → คนเปิดตี้กดสุ่ม ทุกคนเห็นตอนสุ่ม</li>
     <li>ได้แล้วไม่รับ → ให้คนถัดไป · ไม่มีใครรับ → เข้าคลัง</li>
   </ol></div>
   <h2>สร้อยฮอล (เทรดไม่ได้)</h2><div class="card rules"><ol>
     <li>อยากได้ต้องจอง (นับเป็น 1 ใน ${MAX_BOOK} ชิ้น)</li>
-    <li>ตอนหัวตี้กด "ปิดจอง · ลงบอส" เว็บเรียงลำดับตามแต้ม (เท่ากันก็สุ่ม) · สร้อยตัดสินก่อนของอื่น</li>
+    <li>ตอนคนเปิดตี้กด "ปิดจอง · ลงบอส" เว็บเรียงลำดับตามแต้ม (เท่ากันก็สุ่ม) · สร้อยตัดสินก่อนของอื่น</li>
     <li>ดรอปหลายเส้น ให้ตามลำดับ · ไม่มีใครจอง → ปล่อยทิ้ง (เข้าคลังไม่ได้)</li>
   </ol></div>
   <h2>คลังของ</h2><div class="card rules"><ol>
     <li>ของที่ไม่มีใครเอาเข้าคลัง แต้มพอก็กด "ขอแลก" ได้ตลอด ไม่ต้องลงบอสรอบนั้น</li>
-    <li>ได้ของตอนมีตี้กำลังเล่น หัวตี้ตี้นั้นส่งให้คนแต้มมากสุดในคนที่ขอ (เท่ากันก็สุ่ม)</li>
-    <li>เทรดในเกมแล้ว หัวตี้กด "ส่งแล้ว" ถึงจะหักแต้ม</li>
+    <li>ได้ของตอนมีตี้กำลังเล่น คนเปิดตี้ของตี้นั้นส่งให้คนแต้มมากสุดในคนที่ขอ (เท่ากันก็สุ่ม)</li>
+    <li>เทรดในเกมแล้ว คนเปิดตี้กด "ส่งแล้ว" ถึงจะหักแต้ม</li>
   </ol></div>
-  <h2>หัวตี้ทำอะไร</h2><div class="card rules"><ol>
+  <h2>คนเปิดตี้ทำอะไร</h2><div class="card rules"><ol>
     <li>เปิดตี้ (เพื่อนเข้าตี้และจองของได้ทันที) · ยกเลิกตี้ · เอาคนออก (ก่อนปิดจอง)</li>
     <li>ปิดจองก่อนลงบอส · กดสุ่มเมื่อแต้มเท่ากัน · บันทึกผล · ส่งของในคลัง</li>
   </ol></div>`;
@@ -1161,7 +1184,7 @@ function neckSectionHtml(p, isOwner, m) {
     <button class="btn btn-outline btn-block mt" data-act="copy-neck">คัดลอกลำดับไป Discord</button>`;
   else {
     h += `<div class="mt"><b>คนจอง (เรียงตามแต้มตอนนี้):</b>${rankHtml(ptsList(bookersOf(p, NECK)), m && m.id)}</div>`;
-    h += `<p class="note">ลำดับจะล็อกตอนหัวตี้กด "ปิดจอง · ลงบอส" · ถ้าแต้มเท่ากันจะสุ่มตอนนั้น ทุกคนเห็นพร้อมกัน</p>`;
+    h += `<p class="note">ลำดับจะล็อกตอนคนเปิดตี้กด "ปิดจอง · ลงบอส" · ถ้าแต้มเท่ากันจะสุ่มตอนนั้น ทุกคนเห็นพร้อมกัน</p>`;
   }
   return h + '</div>';
 }
@@ -1173,19 +1196,27 @@ function rosterHtml(p, m, isOwner) {
   let h = `<h2>คนในตี้ (${keys(p.members).length}) · ${n} ปาร์ตี้</h2><p class="sec-sub">ปาร์ตี้ละไม่เกิน ${GROUP_SIZE} คน ไว้จัดตี้ในเกม · แต้มและการจองคิดรวมทั้งรอบ</p><div class="groups">`;
   for (let g = 1; g <= n; g++) {
     const ids = groupMembers(p, g), seats = groupSeats(DB, p, g), myJob = m ? m.job : '', canIn = !seatBlock(DB, p, g, myJob), full = ids.length >= GROUP_SIZE;
-    h += `<div class="card group"><div class="group-head"><b>ปาร์ตี้ ${g}</b><span class="muted">${ids.length}/${GROUP_SIZE} คน${myG === g ? ' · คุณอยู่ปาร์ตี้นี้' : ''}</span></div>`;
+    const lead = leaderOf(p, g);
+    h += `<div class="card group"><div class="group-head"><b>ปาร์ตี้ ${g}</b><span class="muted">${ids.length}/${GROUP_SIZE} คน${myG === g ? ' · คุณอยู่ปาร์ตี้นี้' : ''}</span></div>
+      <div class="group-lead ${lead ? '' : 'none'}">${lead ? `👑 หัวตี้ย่อย: <b>${esc(nameOf(lead))}</b>` : 'ยังไม่มีหัวตี้ย่อย'}${live && myG === g && !lead ? ` <button class="btn btn-outline btn-sm" data-act="lead-me" data-g="${g}">อาสาเป็นหัวตี้ย่อย</button>` : ''}</div>`;
     const row = (id, seatNo) => {
       const mm = DB.members[id], bk = myBookings(p, id);
-      return `<div class="mem ${m && id === m.id ? 'me' : ''}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
+      const mine = m && id === m.id, acts = [];
+      if (isOwner && live && n > 1) acts.push(`<button class="btn btn-outline btn-sm" data-act="move-who" data-id="${id}">ย้ายปาร์ตี้</button>`);
+      if (isOwner && live && lead !== id) acts.push(`<button class="btn btn-outline btn-sm" data-act="lead-set" data-g="${g}" data-id="${id}">👑 ตั้งเป็นหัวตี้ย่อย</button>`);
+      if (live && lead === id && (isOwner || mine)) acts.push(`<button class="btn btn-outline btn-sm" data-act="lead-clear" data-g="${g}">เลิกเป็นหัวตี้ย่อย</button>`);
+      if (isOwner && open && id !== p.createdBy) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>`);
+      if (!isOwner && mine && open) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="leave">ออกจากตี้</button>`);
+      return `<div class="mem ${mine ? 'me' : ''} ${lead === id ? 'is-lead' : ''}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}${lead === id ? '<span title="หัวตี้ย่อย">👑</span> ' : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
         <div class="mem-pts">${mm ? mm.points : 0}<small> แต้ม</small></div>
         ${bk.length ? `<div class="mem-bk">${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : ''}
-        ${isOwner && live ? `<div class="mem-act">${n > 1 ? `<button class="btn btn-outline btn-sm" data-act="move-who" data-id="${id}">ย้ายปาร์ตี้</button>` : ''}${open && id !== p.createdBy ? `<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>` : ''}</div>` : ''}</div>`;
+        ${acts.length ? `<div class="mem-act">${acts.join('')}</div>` : ''}</div>`;
     };
     SEAT_JOBS.forEach((job, k) => { h += seats.reserved[k] ? row(seats.reserved[k], k + 1) : (live ? `<div class="mem seat-wait"><div class="mem-main"><span class="seat-no">${k + 1}</span>รอ ${job}</div></div>` : ''); });
-    seats.rest.forEach(id => { h += row(id, 0); });
+    seats.rest.forEach((id, i) => { h += row(id, SEAT_JOBS.length + 1 + i); });
     const freeAny = Math.max(0, GROUP_SIZE - SEAT_JOBS.length - seats.rest.length);
-    if (live && freeAny) h += `<div class="slot">ว่าง ${freeAny} ที่ (อาชีพไหนก็ได้)</div>`;
-    const joinBtn = canIn ? `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>` : '';
+    if (live && freeAny) h += `<div class="slot">ที่ ${SEAT_JOBS.length + seats.rest.length + 1}–${GROUP_SIZE} ว่าง ${freeAny} ที่ (อาชีพไหนก็ได้)</div>`;
+    const joinBtn = canIn ? `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>${lead ? '' : '<p class="note">ปาร์ตี้นี้ยังไม่มีหัวตี้ย่อย · เข้าแล้วอาสาได้</p>'}` : '';
     if (open && !myG) h += joinBtn || (m && !full ? `<p class="note">${esc(seatBlock(DB, p, g, myJob))}</p>` : '');
     else if (open && myG && myG !== g && canIn) h += `<button class="btn btn-outline btn-block mt" data-act="move-me" data-g="${g}">ย้ายมาปาร์ตี้ ${g}</button>`;
     if (isOwner && live && g === n && n > 1 && !ids.length) h += `<button class="btn btn-outline-red btn-block mt" data-act="group-remove">ลบปาร์ตี้ ${g}</button>`;
@@ -1218,7 +1249,7 @@ function viewParty(r) {
         ${locked ? '<span class="muted">ปิดจองแล้ว</span>' : `<button class="btn btn-outline-red" data-act="unbook" data-item="${id}">ยกเลิก</button>`}</div>`;
     });
     if (p.locked) h += `<p class="note">ปิดจองแล้ว (ลงบอส) · เปลี่ยนไม่ได้แล้ว</p>`;
-    else if (!mine.length) h += `<p class="note">👇 เลื่อนลงไปที่ "ของทั้งหมด" แล้วกด <b>จองชิ้นนี้</b> · จองได้จนหัวตี้กดปิดจอง</p>`;
+    else if (!mine.length) h += `<p class="note">👇 เลื่อนลงไปที่ "ของทั้งหมด" แล้วกด <b>จองชิ้นนี้</b> · จองได้จนคนเปิดตี้กดปิดจอง</p>`;
     h += `</div>`;
   } else if (!p.locked) h += freeGroup(p, m ? m.job : '') ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="note">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · ${m ? 'เข้าแล้วจองของได้เลย' : 'กดแล้วเลือกชื่อ ใส่รหัส'}</p>`
       : `<div class="card red"><b>ไม่มีที่ว่างสำหรับคุณ</b> · ทุกปาร์ตี้เต็ม หรือเหลือแต่ที่ของ Dark Knight / Bishop · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
@@ -1240,7 +1271,7 @@ function viewParty(r) {
 
   // who booked what (ranked by points now; decided when the result is recorded)
   const booked = bookedItemIds(p).filter(id => id !== NECK).sort((a, b) => price(b) - price(a) || a - b);
-  h += `<h2>ใครจองอะไร</h2><p class="sec-sub">ตัดสินตอนบันทึกผล · แต้มมากสุดได้ก่อน · ไล่จากของแพงไปถูก · ได้ชิ้นแรกแล้วแต้มลด · แต้มเท่ากัน หัวตี้กดสุ่ม</p>`;
+  h += `<h2>ใครจองอะไร</h2><p class="sec-sub">ตัดสินตอนบันทึกผล · แต้มมากสุดได้ก่อน · ไล่จากของแพงไปถูก · ได้ชิ้นแรกแล้วแต้มลด · แต้มเท่ากัน คนเปิดตี้กดสุ่ม</p>`;
   if (!booked.length) h += `<div class="card">ยังไม่มีใครจอง</div>`;
   else h += `<div class="cards-grid">` + booked.map(id => `<div class="card"><div class="item">${iconHtml(id)}<div><div class="item-name">${esc(itemOf(id).name)}</div><span class="price">${price(id)} แต้ม</span></div></div>
       <div class="mt"><b>คนจอง (เรียงตามแต้มตอนนี้):</b>${rankHtml(ptsList(bookersOf(p, id)), m && m.id)}</div></div>`).join('') + `</div>`;
@@ -1274,7 +1305,6 @@ function viewParty(r) {
     h += itemCard(p, it, m);
   }));
   if (openGrid) h += '</div>';
-  if (isMember && !isOwner && !p.locked) h += `<div class="mt2"><button class="btn btn-outline-red btn-block" data-act="leave">ออกจากตี้</button></div>`;
   if (isOwner) h += cancelBtnHtml();
   return h;
 }
@@ -1284,7 +1314,7 @@ function vaultSectionHtml(p, isOwner) {
   if (!isLive(p)) return '';
   const items = vals(DB.vault).filter(v => keys(v.requests).length);
   if (!items.length) return '';
-  let h = `<h2>ของในคลังที่มีคนขอ (${items.length})</h2><p class="muted">แต้มมากสุดได้ · แต้มเท่ากัน หัวตี้กดสุ่ม${isOwner ? ' · เทรดในเกมก่อน แล้วค่อยกด "ส่งแล้ว"' : ' · คนเปิดตี้เป็นคนส่งของ'}</p>`;
+  let h = `<h2>ของในคลังที่มีคนขอ (${items.length})</h2><p class="muted">แต้มมากสุดได้ · แต้มเท่ากัน คนเปิดตี้กดสุ่ม${isOwner ? ' · เทรดในเกมก่อน แล้วค่อยกด "ส่งแล้ว"' : ' · คนเปิดตี้เป็นคนส่งของ'}</p>`;
   h += `<div class="cards-grid">`;
   items.forEach(v => {
     const pr = price(v.itemId), top = vaultTop(DB, v);
@@ -1465,8 +1495,8 @@ function resultSummaryHtml(p, c) {
 /* ---- my points ---- */
 function vaultStatusText(v, mid) {
   const top = vaultTop(DB, v);
-  if (top && top.id === mid) return 'ตอนนี้คุณแต้มมากสุด ✓ ได้ของตอนมีตี้กำลังเล่น (หัวตี้ส่งให้)';
-  if (top && top.tie && top.tie.includes(mid)) return 'แต้มเท่ากับคนอื่น · หัวตี้จะสุ่มตอนมีตี้';
+  if (top && top.id === mid) return 'ตอนนี้คุณแต้มมากสุด ✓ ได้ของตอนมีตี้กำลังเล่น (คนเปิดตี้ส่งให้)';
+  if (top && top.tie && top.tie.includes(mid)) return 'แต้มเท่ากับคนอื่น · คนเปิดตี้จะสุ่มตอนมีตี้';
   return 'มีคนแต้มมากกว่า · ถ้าเขาไม่รับ จะถึงคุณ';
 }
 function viewMe() {
@@ -1764,8 +1794,17 @@ const ACT = {
   }),
   join: el => {
     const pid = route().pid, g = Number(el.dataset.g || 0);
-    requireMe(async () => { const p = DB.parties[pid]; if (p && p.members[meId()]) return render(); await run(() => Api.join(pid, meId(), g), () => `เข้าปาร์ตี้ ${groupOf(DB.parties[pid], meId())} แล้ว ✓`); go('#' + pid); });
+    requireMe(async () => {
+      const p = DB.parties[pid]; if (p && p.members[meId()]) return render();
+      const target = g || freeGroup(p, me().job); let lead = false;
+      if (target && !leaderOf(p, target)) {   // nobody leads that in-game party yet → offer it
+        lead = await confirmBox({ title: `เข้าปาร์ตี้ ${target}`, body: 'ปาร์ตี้นี้ยังไม่มี <b>หัวตี้ย่อย</b> (คนที่คนเปิดตี้ติดต่อแทนทั้งปาร์ตี้ เช่น ชวนเข้าปาร์ตี้ในเกม)<br>อยากเป็นไหม?', ok: '👑 เข้าเป็นหัวตี้ย่อย', okClass: 'btn-primary', cancel: 'เข้าเป็นสมาชิก' });
+      }
+      await run(() => Api.join(pid, meId(), g, lead), () => `เข้าปาร์ตี้ ${groupOf(DB.parties[pid], meId())} แล้ว ✓`); go('#' + pid); });
   },
+  'lead-me': el => run(() => Api.setLeader(route().pid, Number(el.dataset.g), meId(), meId()), 'คุณเป็นหัวตี้ย่อยแล้ว 👑'),
+  'lead-set': el => run(() => Api.setLeader(route().pid, Number(el.dataset.g), el.dataset.id, meId()), `ตั้ง ${nameOf(el.dataset.id)} เป็นหัวตี้ย่อยแล้ว 👑`),
+  'lead-clear': async el => { if (await confirmBox({ title: 'เลิกเป็นหัวตี้ย่อย?', ok: 'เลิก', okClass: 'btn-danger', cancel: 'ไม่เลิก' })) run(() => Api.setLeader(route().pid, Number(el.dataset.g), null, meId()), 'เลิกเป็นหัวตี้ย่อยแล้ว ✓'); },
   'move-me': el => { const g = Number(el.dataset.g); run(() => Api.move(route().pid, meId(), g, meId()), `ย้ายมาปาร์ตี้ ${g} แล้ว ✓`); },
   'move-who': el => {
     const p = DB.parties[route().pid], id = el.dataset.id, cur = groupOf(p, id), job = jobOfId(DB, id);
@@ -1897,7 +1936,7 @@ function normalize(snap) {
   const d = snap || {};
   ['members', 'parties', 'vault', 'log', 'prices', 'cancelled'].forEach(k => { d[k] = d[k] || {}; });
   vals(d.parties).forEach(p => {
-    p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1;
+    p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1; p.leaders = p.leaders || {};
     keys(p.bookings).forEach(mid => { const b = p.bookings[mid]; if (b == null || typeof b !== 'object') p.bookings[mid] = b == null ? {} : { [b]: 0 }; });   // old 1-item shape
     vals(p.tieRolls).forEach(r => { r.order = r.order || []; r.pool = r.pool || []; r.points = r.points || {}; });
     if (p.neckOrder) { p.neckOrder.order = p.neckOrder.order || []; p.neckOrder.points = p.neckOrder.points || {}; }
