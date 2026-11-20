@@ -197,6 +197,10 @@ table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;ba
 .party-info{display:inline-flex;flex-wrap:wrap;gap:4px 10px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:6px 12px;font-size:15px;margin:-8px 0 14px}
 input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-width:200px;padding:6px 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;color:var(--text)}
 
+.day-count{font-size:13px;font-weight:600;color:var(--text2);background:#fff;border:1px solid var(--line);border-radius:999px;padding:0 10px}
+.cancelled-card{background:var(--bg2);box-shadow:none}
+.cancelled-card .muted{font-size:14px}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -533,7 +537,12 @@ const vaultTop = (db, v) => pickTop(vaultRank(db, v).filter(x => x.ok), tieOrder
 const newId = (prefix, n = 4) => { const c = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < n; i++) s += c[Math.floor(rand() * c.length)]; return prefix + s; };
 /** party id = party-YYYYMMDD-N (N = round of that local day) */
 const ymd = ts => { const d = new Date(ts); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`; };
-const partyIdOf = (ts, n) => `party-${ymd(ts)}-${n}`;
+const DAY_START_HOUR = 6;
+const gameDay = ts => ymd(ts - DAY_START_HOUR * 3600e3);           // 'YYYYMMDD' of the play day
+const partyIdOf = (ts, n) => `party-${gameDay(ts)}-${n}`;
+/** play day of a party: from its id (party-YYYYMMDD-N), else from when it was opened */
+const partyDay = p => { const m = /^party-(\d{8})-/.exec(p.id || ''); return m ? m[1] : gameDay(p.createdAt || 0); };
+const dayLabel = key => new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8)).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', year: '2-digit' });
 /** "ตี้ 17 พ.ย. 69 · รอบที่ 2" (falls back to raw id for old-format ids) */
 function partyName(pid) {
   const m = /^party-(\d{4})(\d{2})(\d{2})-(\d+)$/.exec(pid || '');
@@ -560,6 +569,17 @@ const Api = {
   },
 
   async createParty(mid, opts = {}) {
+    // legacy: parties cancelled by the old version still sit in `parties` → archive them first (their round number is reused)
+    const old = vals(DB && DB.parties).filter(p => p.status === 'cancelled');
+    if (old.length) await backend.transaction('', root => {
+      root.cancelled = root.cancelled || {};
+      vals(root.parties).filter(p => p.status === 'cancelled').forEach(p => {
+        const cid = newId('c', 8);
+        root.cancelled[cid] = { id: cid, partyId: p.id, name: partyName(p.id), day: partyDay(p), createdAt: p.createdAt, createdBy: p.createdBy, cancelledAt: p.cancelledAt || p.createdAt, members: p.members || {}, time: p.time || null, note: p.note || null, bookings: bookingCount(p) };
+        delete root.parties[p.id];
+      });
+      return root;
+    });
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(opts.time || '') ? opts.time : '';
     const note = String(opts.note || '').replace(/\s+/g, ' ').trim().slice(0, 100);
     let id;
@@ -633,12 +653,16 @@ const Api = {
 
 
   /** opener cancels a party that hasn't been recorded yet → nobody gets points, bookings are dropped */
+  /** cancelled parties leave `parties` (round number is reused) and are kept in `cancelled` for the history page */
   async cancel(pid, actorId) {
-    await backend.transaction(`parties/${pid}`, p => {
-      ownerCheck(p, actorId);
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid]; ownerCheck(p, actorId);
       if (p.status === 'done') throw new UErr('ตี้นี้บันทึกผลไปแล้ว ยกเลิกไม่ได้');
       if (p.status === 'cancelled') throw new UErr('ตี้นี้ยกเลิกไปแล้ว');
-      return null;   // cancelled parties are removed: no points, no history, round number reused
+      root.cancelled = root.cancelled || {}; const cid = newId('c', 8);
+      root.cancelled[cid] = { id: cid, partyId: pid, name: partyName(pid), day: partyDay(p), createdAt: p.createdAt, createdBy: p.createdBy,
+        cancelledAt: Date.now(), cancelledBy: actorId, members: p.members || {}, time: p.time || null, note: p.note || null, bookings: bookingCount(p) };
+      delete root.parties[pid]; return root;
     });
   },
 
@@ -853,7 +877,7 @@ function seedData() {
 let DB = null;
 const UI = {
   login: null, reg: { name: '', job: '' }, menuOpen: false, regOpen: false, loginSearch: '', filter: 'mine', search: '',
-  boardSearch: '', boardJob: '', drafts: {}, autoLock: {}, renameOpen: false, renameText: '', extraSearch: '', openHist: {},
+  boardSearch: '', boardJob: '', drafts: {}, histTab: 'done', autoLock: {}, renameOpen: false, renameText: '', extraSearch: '', openHist: {},
   seenRolls: new Set(), loadedAt: Date.now(), rollQueue: [], rolling: false, demoPick: '',
 };
 const ss = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} } };
@@ -1042,8 +1066,8 @@ function partyStatus(p) {
 }
 
 function viewHome() {
-  const today = ymd(Date.now());
-  const live = vals(DB.parties).filter(p => isLive(p) || (p.status === 'done' && !p.imported && ymd(p.doneAt || p.createdAt) === today)).sort((a, b) => (a.status === 'done') - (b.status === 'done') || b.createdAt - a.createdAt);
+  const today = gameDay(Date.now());
+  const live = vals(DB.parties).filter(p => isLive(p) || (p.status === 'done' && !p.imported && partyDay(p) === today)).sort((a, b) => (a.status === 'done') - (b.status === 'done') || b.createdAt - a.createdAt);
   const tile = (title, desc, attrs) => `<button class="tile" ${attrs}><span class="tile-title">${title}</span><span class="tile-desc">${desc}</span></button>`;
   return `<h1>จองของบอส Horntail</h1><p class="lead">เปิดตี้ ส่งลิงก์ให้เพื่อน แล้วจองของที่อยากได้ ระบบดูแต้มและนับแต้มให้</p>
     <div class="hero-actions">
@@ -1505,22 +1529,49 @@ function viewVault() {
 
 /* ---- history ---- */
 function viewHistory() {
-  const done = vals(DB.parties).filter(p => p.status === 'done').sort((a, b) => b.doneAt - a.doneAt);
-  let h = `<h1>ประวัติ</h1>`;
+  const done = vals(DB.parties).filter(p => p.status === 'done').sort((a, b) => partyDay(b).localeCompare(partyDay(a)) || (b.doneAt || 0) - (a.doneAt || 0));
+  const legacy = vals(DB.parties).filter(p => p.status === 'cancelled').map(p => ({ id: p.id, partyId: p.id, name: partyName(p.id), day: partyDay(p), createdAt: p.createdAt, createdBy: p.createdBy, cancelledAt: p.cancelledAt || p.createdAt, members: p.members || {}, time: p.time, note: p.note, bookings: bookingCount(p) }));
+  const cancelled = [...vals(DB.cancelled), ...legacy].sort((a, b) => b.cancelledAt - a.cancelledAt);
+  const onDone = UI.histTab !== 'cancelled';
+  let h = `<h1>ประวัติ</h1><div class="filter-tabs">
+    <button class="ftab ${onDone ? 'on' : ''}" data-act="hist-tab" data-v="done" aria-pressed="${onDone}">${onDone ? '✓ ' : ''}ตี้ที่จบ <span class="cnt">${done.length}</span></button>
+    <button class="ftab ${!onDone ? 'on' : ''}" data-act="hist-tab" data-v="cancelled" aria-pressed="${!onDone}">${!onDone ? '✓ ' : ''}ตี้ที่ยกเลิก <span class="cnt">${cancelled.length}</span></button></div>
+    <p class="sec-sub">แบ่งตามวันเล่น · ตัดวันตอน 6 โมงเช้า (ตี้หลังเที่ยงคืนนับเป็นของคืนก่อน)</p>`;
+  const byDay = (list, dayOf) => { const g = {}; list.forEach(x => { (g[dayOf(x)] = g[dayOf(x)] || []).push(x); }); return Object.entries(g).sort((a, b) => b[0].localeCompare(a[0])); };
+
+  if (!onDone) {
+    if (!cancelled.length) return h + `<div class="card">ยังไม่มีตี้ที่ยกเลิก</div>`;
+    byDay(cancelled, c => c.day || gameDay(c.createdAt)).forEach(([day, list]) => {
+      h += `<h2>${esc(dayLabel(day))} <span class="day-count">${list.length} ตี้</span></h2>`;
+      list.forEach(c => {
+        h += `<div class="card cancelled-card"><div class="row-between"><b class="card-title">${esc(c.name || partyName(c.partyId))}</b><span class="pill red">ยกเลิก</span></div>
+          <div class="muted">${esc(nameOf(c.createdBy))} เป็นคนเปิด · ${keys(c.members).length} คน${c.bookings ? ` · จองไว้ ${c.bookings} ชิ้น` : ''}</div>
+          <div class="muted">เปิด ${fmtDate(c.createdAt)} → ยกเลิก ${fmtDate(c.cancelledAt)}</div>
+          ${c.time || c.note ? `<div class="muted">${c.time ? '⏰ ' + esc(c.time) : ''}${c.time && c.note ? ' · ' : ''}${c.note ? '📝 ' + esc(c.note) : ''}</div>` : ''}
+          ${keys(c.members).length ? `<p class="note">ใครอยู่ในตี้: ${keys(c.members).map(id => esc(nameOf(id))).join(', ')}</p>` : ''}</div>`;
+      });
+    });
+    return h + `<p class="note">ตี้ที่ยกเลิกไม่มีใครได้แต้ม และไม่นับเลขรอบ (เลขรอบนั้นถูกใช้กับตี้ถัดไป)</p>`;
+  }
+
   if (!done.length) h += `<div class="card">ยังไม่มีตี้ที่จบ</div>`;
-  done.forEach((p, i) => {
-    const open = UI.openHist[p.id] ?? i === 0, R = p.result;
-    h += `<div class="card"><div class="row-between"><div><b class="card-title">${esc(partyName(p.id))}</b><div class="muted">${p.imported ? 'ระบบเก่า' : fmtDate(p.doneAt)} · ${keys(p.members).length} คน${p.imported ? '' : ` · ได้ของ ${R.awards.length} ชิ้น`}</div></div>
-      <button class="btn btn-outline" data-act="hist-toggle" data-id="${p.id}">${open ? 'ซ่อน' : 'ดูละเอียด'}</button></div>`;
-    if (open && p.imported) h += `<p class="note">นำเข้าจากระบบเก่า · ไม่ได้บันทึกของที่ดรอป · ทุกคน +1 แต้ม</p><h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id))).join(', ')}</p><h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
-    else if (open) {
-      h += `<h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id)) + (R.finishers.includes(id) ? '' : ' (ออกก่อน)')).join(', ')}</p>`;
-      h += `<h3>ใครจองอะไร</h3>` + (bookedItemIds(p).map(id => `<div class="mt"><b>${esc(shortName(id))}</b>${orderHtml(id === NECK && p.neckOrder ? p.neckOrder.order : bookersOf(p, id))}</div>`).join('') || '<p>ไม่มี</p>');
-      h += `<h3 class="mt">ใครได้</h3>${R.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${a.kind === 'free' ? '(แจกฟรี)' : `(หัก ${a.price})`}</div>`).join('') || '<p>ไม่มี</p>'}`;
-      if (R.toVault.length) h += `<p class="mt"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</p>`;
-      h += `<h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
-    }
-    h += `</div>`;
+  let first = true;
+  byDay(done, partyDay).forEach(([day, list]) => {
+    h += `<h2>${esc(dayLabel(day))} <span class="day-count">${list.length} ตี้</span></h2>`;
+    list.forEach(p => {
+      const open = UI.openHist[p.id] ?? first, R = p.result; first = false;
+      h += `<div class="card"><div class="row-between"><div><b class="card-title">${esc(partyName(p.id))}</b><div class="muted">${p.imported ? 'ระบบเก่า' : 'จบ ' + fmtDate(p.doneAt)} · ${keys(p.members).length} คน${p.imported ? '' : ` · ได้ของ ${R.awards.length} ชิ้น`}</div></div>
+        <button class="btn btn-outline" data-act="hist-toggle" data-id="${p.id}" data-open="${open ? 1 : 0}">${open ? 'ซ่อน' : 'ดูละเอียด'}</button></div>`;
+      if (open && p.imported) h += `<p class="note">นำเข้าจากระบบเก่า · ไม่ได้บันทึกของที่ดรอป · ทุกคน +1 แต้ม</p><h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id))).join(', ')}</p><h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
+      else if (open) {
+        h += `<h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id)) + (R.finishers.includes(id) ? '' : ' (ออกก่อน)')).join(', ')}</p>`;
+        h += `<h3>ใครจองอะไร</h3>` + (bookedItemIds(p).map(id => `<div class="mt"><b>${esc(shortName(id))}</b>${orderHtml(id === NECK && p.neckOrder ? p.neckOrder.order : bookersOf(p, id))}</div>`).join('') || '<p>ไม่มี</p>');
+        h += `<h3 class="mt">ใครได้</h3>${R.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${a.kind === 'free' ? '(แจกฟรี)' : `(หัก ${a.price})`}</div>`).join('') || '<p>ไม่มี</p>'}`;
+        if (R.toVault.length) h += `<p class="mt"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</p>`;
+        h += `<h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
+      }
+      h += `</div>`;
+    });
   });
   const logs = vals(DB.log).sort((a, b) => b.at - a.at);
   h += `<h2>ส่งของจากคลัง / คนสมัครใหม่ / เปลี่ยนชื่อ</h2>` + (logs.length ? logs.map(l => `<div class="card"><div class="muted">${fmtDate(l.at)}${l.type === 'vault-deliver' ? ' · ' + esc(nameOf(l.by)) + ' เป็นคนส่ง' : ''}</div><b>${esc(logText(l))}</b></div>`).join('') : '<div class="card">ยังไม่มี</div>');
@@ -1802,7 +1853,8 @@ const ACT = {
     if (await confirmBox({ title: `${esc(name)} ไม่รับ?`, body: 'ที่เขาขอไว้จะถูกยกเลิก แล้วให้คนถัดไป', ok: 'ใช่ ให้คนถัดไป' })) run(() => Api.vaultDecline(v.id, el.dataset.m, route().pid, meId()), 'ให้คนถัดไปแล้ว ✓');
   },
   'modal-close': () => closeModal(),
-  'hist-toggle': el => { const p = el.dataset.id, cur = UI.openHist[p] ?? (vals(DB.parties).filter(x => x.status === 'done').sort((a, b) => b.doneAt - a.doneAt)[0].id === p); UI.openHist[p] = !cur; render(); },
+  'hist-toggle': el => { UI.openHist[el.dataset.id] = el.dataset.open !== '1'; render(); },
+  'hist-tab': el => { UI.histTab = el.dataset.v; render(); },
   // demo
   'demo-as': () => { const id = UI.demoPick; if (!DB.members[id]) return; UI.login = null; ss.set('htloot-me', id); ls.set('htloot-last', id); toast(`ตอนนี้คุณคือ ${DB.members[id].name} ✓`); render(); window.scrollTo(0, 0); },
   'demo-reset': async () => {
@@ -1843,7 +1895,7 @@ const BOOT = { error: null, online: null };
 /** RTDB drops empty objects/arrays → restore the shape the UI expects */
 function normalize(snap) {
   const d = snap || {};
-  ['members', 'parties', 'vault', 'log', 'prices'].forEach(k => { d[k] = d[k] || {}; });
+  ['members', 'parties', 'vault', 'log', 'prices', 'cancelled'].forEach(k => { d[k] = d[k] || {}; });
   vals(d.parties).forEach(p => {
     p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1;
     keys(p.bookings).forEach(mid => { const b = p.bookings[mid]; if (b == null || typeof b !== 'object') p.bookings[mid] = b == null ? {} : { [b]: 0 }; });   // old 1-item shape
