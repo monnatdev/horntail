@@ -95,8 +95,11 @@ main h2::before{content:'';flex:none;width:4px;height:18px;border-radius:2px;bac
 .pill.done{background:var(--green-l);color:var(--green-t);border-color:var(--green-b)}
 .party-done{background:var(--bg2);box-shadow:none}
 .seat-no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--navy);color:var(--gold2);font-size:12px;font-weight:700;margin-right:6px;vertical-align:1px}
-.seat-wait{color:var(--text2);font-size:14px;font-style:italic}
-.seat-wait .seat-no{background:var(--gray-l);color:var(--text2)}
+.seat-empty{display:flex;align-items:center;gap:6px;margin:6px 0;padding:7px 10px;border:1.5px dashed var(--line2);border-radius:10px;background:var(--bg2);color:var(--text2);font-size:14px;font-style:italic}
+.seat-empty .seat-no{background:#fff;color:var(--text2);border:1px solid var(--line2)}
+.group .mem{border-top:0;border:1px solid var(--line);border-radius:10px;margin:6px 0;padding:7px 10px;background:#fff}
+.group .mem.me{margin:6px 0;padding:7px 10px;background:var(--blue-l);border-color:var(--blue-b)}
+.group .mem.is-lead{border-color:var(--gold)}
 .link-btn{background:none;border:0;padding:6px 0;font:inherit;font-size:14px;font-weight:600;color:var(--red-t);text-decoration:underline;cursor:pointer}
 .card.mine{border:2px solid var(--green)}
 .row-between{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
@@ -204,6 +207,8 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 .group-lead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px;padding:6px 0 8px;border-bottom:1px dashed var(--line)}
 .group-lead.none{color:var(--text2);font-style:italic}
 .mem.is-lead b{color:var(--navy)}
+
+.join-hint{background:var(--blue-l);border:1px solid var(--blue-b);border-left:5px solid var(--blue);border-radius:12px;padding:12px 16px;font-size:15px;margin:0 0 12px}
 
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
@@ -1212,11 +1217,12 @@ function rosterHtml(p, m, isOwner) {
         ${bk.length ? `<div class="mem-bk">${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : ''}
         ${acts.length ? `<div class="mem-act">${acts.join('')}</div>` : ''}</div>`;
     };
-    SEAT_JOBS.forEach((job, k) => { h += seats.reserved[k] ? row(seats.reserved[k], k + 1) : (live ? `<div class="mem seat-wait"><div class="mem-main"><span class="seat-no">${k + 1}</span>รอ ${job}</div></div>` : ''); });
+    // always 6 seats: 1 = Dark Knight, 2 = Bishop, 3–6 = anyone · empty seats are dashed boxes
+    const empty = (no, label) => (live ? `<div class="seat-empty"><span class="seat-no">${no}</span><span>ว่าง · ${label}</span></div>` : '');
+    SEAT_JOBS.forEach((job, k) => { h += seats.reserved[k] ? row(seats.reserved[k], k + 1) : empty(k + 1, `รอ ${job}`); });
     seats.rest.forEach((id, i) => { h += row(id, SEAT_JOBS.length + 1 + i); });
-    const freeAny = Math.max(0, GROUP_SIZE - SEAT_JOBS.length - seats.rest.length);
-    if (live && freeAny) h += `<div class="slot">ที่ ${SEAT_JOBS.length + seats.rest.length + 1}–${GROUP_SIZE} ว่าง ${freeAny} ที่ (อาชีพไหนก็ได้)</div>`;
-    const joinBtn = canIn ? `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>${lead ? '' : '<p class="note">ปาร์ตี้นี้ยังไม่มีหัวตี้ย่อย · เข้าแล้วอาสาได้</p>'}` : '';
+    for (let no = SEAT_JOBS.length + seats.rest.length + 1; no <= GROUP_SIZE; no++) h += empty(no, 'อาชีพไหนก็ได้');
+    const joinBtn = canIn ? `<button class="btn btn-primary btn-block mt" data-act="join" data-g="${g}">เข้าปาร์ตี้ ${g}</button>` : '';
     if (open && !myG) h += joinBtn || (m && !full ? `<p class="note">${esc(seatBlock(DB, p, g, myJob))}</p>` : '');
     else if (open && myG && myG !== g && canIn) h += `<button class="btn btn-outline btn-block mt" data-act="move-me" data-g="${g}">ย้ายมาปาร์ตี้ ${g}</button>`;
     if (isOwner && live && g === n && n > 1 && !ids.length) h += `<button class="btn btn-outline-red btn-block mt" data-act="group-remove">ลบปาร์ตี้ ${g}</button>`;
@@ -1251,7 +1257,7 @@ function viewParty(r) {
     if (p.locked) h += `<p class="note">ปิดจองแล้ว (ลงบอส) · เปลี่ยนไม่ได้แล้ว</p>`;
     else if (!mine.length) h += `<p class="note">👇 เลื่อนลงไปที่ "ของทั้งหมด" แล้วกด <b>จองชิ้นนี้</b> · จองได้จนคนเปิดตี้กดปิดจอง</p>`;
     h += `</div>`;
-  } else if (!p.locked) h += freeGroup(p, m ? m.job : '') ? `<button class="btn btn-primary btn-xl btn-block" data-act="join" data-g="0">เข้าตี้นี้</button><p class="note">เข้าปาร์ตี้ที่ยังว่าง หรือเลือกปาร์ตี้เองด้านล่าง · ${m ? 'เข้าแล้วจองของได้เลย' : 'กดแล้วเลือกชื่อ ใส่รหัส'}</p>`
+  } else if (!p.locked) h += freeGroup(p, m ? m.job : '') ? `<div class="join-hint">👇 <b>ยังไม่ได้เข้าตี้</b> · เลือกปาร์ตี้ด้านล่าง แล้วกด <b>"เข้าปาร์ตี้"</b>${m ? ' · เข้าแล้วจองของได้เลย' : ' (จะให้เลือกชื่อก่อน)'}</div>`
       : `<div class="card red"><b>ไม่มีที่ว่างสำหรับคุณ</b> · ทุกปาร์ตี้เต็ม หรือเหลือแต่ที่ของ Dark Knight / Bishop · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
   else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ปิดจองแล้ว ดูได้อย่างเดียว</div>`;
   else h += `<div class="card blue"><b>ถ้าคุณอยู่ในตี้นี้</b> กด "เลือกชื่อ" ด้านบนก่อน</div>`;
