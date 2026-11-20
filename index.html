@@ -210,6 +210,31 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 
 .join-hint{background:var(--blue-l);border:1px solid var(--blue-b);border-left:5px solid var(--blue);border-radius:12px;padding:12px 16px;font-size:15px;margin:0 0 12px}
 
+.loader{display:grid;place-items:center;gap:8px;padding:60px 0;color:var(--text2)}
+.loader img{width:63px;height:auto;image-rendering:pixelated}
+.loader p{margin:0;font-weight:600}
+.btn-gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--navy);box-shadow:0 3px 10px rgba(212,160,23,.3)}
+.btn-gold:hover{background:var(--gold)}
+.group-head .group-lead{display:inline-block;font-size:14px;font-weight:500;border:0;padding:0;margin-left:8px}
+.group-head .group-lead.none{color:var(--text2);font-style:italic}
+.lead-offer{padding:4px 0 6px}
+.group .mem.booked{border-left:4px solid var(--green);background:#f6fbf8}
+.group .mem.unbooked{border-left:4px solid #e08a2e;background:#fffaf3}
+.group .mem.me.booked,.group .mem.me.unbooked{background:var(--blue-l)}
+.bk-tag{font-size:12px;font-weight:700;border-radius:999px;padding:0 8px}
+.bk-tag.ok{background:var(--green);color:#fff}
+.bk-tag.no{background:#fde7cf;color:#9a4a07;border:1px solid #f4c08a}
+.filter-tabs.three{grid-template-columns:repeat(3,1fr)}
+.log-list{padding:6px 14px}
+.log-row{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log-row:last-child{border-bottom:0}
+.log-time{color:var(--text2);font-variant-numeric:tabular-nums}
+.admin-box{margin-top:12px;border:1px dashed var(--gold);border-radius:12px;padding:10px 12px;background:var(--amber-l)}
+.admin-head{font-weight:700;color:var(--amber-t);display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;margin-bottom:6px}
+.admin-head span{font-weight:500;font-size:13px}
+.admin-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--amber-b)}
+.admin-row select{width:auto;min-height:36px;font-size:14px;padding:2px 8px;flex:1 1 140px}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -277,7 +302,7 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 <body>
 <div id="toast" role="status" aria-live="assertive"></div>
 <header id="topbar"></header>
-<main id="app" class="wrap"><p class="lead mt2">กำลังโหลด…</p></main>
+<main id="app" class="wrap"><div class="loader"><img src="" alt="" id="loader-img"><p>กำลังโหลด…</p></div></main>
 <section id="demo"></section>
 <div id="modal-root"></div>
 <noscript>ต้องเปิด JavaScript ถึงจะใช้งานได้</noscript>
@@ -287,6 +312,9 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 /* =====================================================================
    1) CONFIG — item data, jobs, default prices
    ===================================================================== */
+const LOADER_GIF = 'data:image/gif;base64,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';   // Orange Mushroom hop (maplestory.io gms/83 mob 1210102 render/move)
+const loaderHtml = text => `<div class="loader"><img src="${LOADER_GIF}" alt=""><p>${text}</p></div>`;
+{ const li = document.getElementById('loader-img'); if (li) li.src = LOADER_GIF; }
 const NECK = 1122000;           // Horntail Necklace (untradeable)
 const MAGES = ['F/P Arch Mage', 'I/L Arch Mage', 'Bishop'];
 const JOBS = ['Hero', 'Paladin', 'Dark Knight', 'F/P Arch Mage', 'I/L Arch Mage', 'Bishop', 'Bowmaster', 'Marksman', 'Night Lord', 'Shadower', 'Buccaneer', 'Corsair', 'Aran'];
@@ -568,6 +596,10 @@ const addLog = (root, entry) => { root.log = root.log || {}; const id = newId('l
       No admin role: the party opener runs their party (start, rolls,
       result) and the vault rolls/hand-overs from their party page.
    ===================================================================== */
+// แอดมินแก้ประวัติตี้ที่จบแล้วได้ (แต้มไม่เปลี่ยน) · m19 = โม, m16 = รัก (รหัสตามไฟล์นำเข้า · แก้รายชื่อที่นี่)
+const ADMIN_IDS = ['m19', 'm16'];
+const isAdmin = mid => ADMIN_IDS.includes(mid);
+const adminCheck = actorId => { if (!isAdmin(actorId)) throw new UErr('แอดมินเท่านั้นที่แก้ประวัติได้'); };
 const ownerCheck = (p, actorId) => { if (!p) throw new UErr('ไม่พบตี้นี้'); if (p.createdBy !== actorId) throw new UErr('คนเปิดตี้เท่านั้นที่กดได้'); };
 const Api = {
   async resetDemo() { await backend.set('', seedData()); },
@@ -594,12 +626,13 @@ const Api = {
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(opts.time || '') ? opts.time : '';
     const note = String(opts.note || '').replace(/\s+/g, ' ').trim().slice(0, 100);
     let id;
-    await backend.transaction('parties', all => {   // atomic: two people opening at once get round N and N+1
-      all = all || {}; const now = Date.now(); let n = 1;
+    await backend.transaction('', root => {   // atomic: two people opening at once get round N and N+1
+      root.parties = root.parties || {}; const all = root.parties, now = Date.now(); let n = 1;
       while (all[partyIdOf(now, n)] && all[partyIdOf(now, n)].status !== 'cancelled') n++;   // old cancelled ones don't count
       id = partyIdOf(now, n);
       all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1, ...(time ? { time } : {}), ...(note ? { note } : {}) };   // join + book right away
-      return all;
+      addLog(root, { type: 'party-open', by: mid, partyId: id, name: partyName(id) });
+      return root;
     });
     return id;
   },
@@ -637,6 +670,25 @@ const Api = {
       dropLeader(p, mid); p.slots = p.slots || {}; p.slots[mid] = g; return root;
     });
   },
+  /** admin: edit a finished round's awards / delete the round. History only — points are NOT recalculated. */
+  async histEdit(pid, actorId, op) {
+    await backend.transaction('', root => {
+      adminCheck(actorId);
+      const p = root.parties && root.parties[pid]; if (!p || p.status !== 'done') throw new UErr('ไม่พบตี้ที่จบแล้วนี้');
+      const R = p.result = p.result || {}; R.awards = R.awards || [];
+      const nm = id => (root.members[id] ? root.members[id].name : id); let what = '';
+      if (op.kind === 'winner') { const a = R.awards[op.i]; if (!a) throw new UErr('ไม่พบรายการนี้'); what = `${shortName(a.itemId)}: ${nm(a.memberId)} → ${nm(op.memberId)}`; a.memberId = op.memberId; }
+      else if (op.kind === 'remove') { const a = R.awards[op.i]; if (!a) throw new UErr('ไม่พบรายการนี้'); what = `ลบ ${shortName(a.itemId)} ของ ${nm(a.memberId)}`; R.awards.splice(op.i, 1); }
+      else if (op.kind === 'add') { if (!root.members[op.memberId]) throw new UErr('เลือกคนก่อน'); R.awards.push({ itemId: Number(op.itemId), memberId: op.memberId, price: priceIn(root, op.itemId), kind: 'manual' }); what = `เพิ่ม ${shortName(op.itemId)} ให้ ${nm(op.memberId)}`; }
+      else if (op.kind === 'delete') {
+        addLog(root, { type: 'history-delete', by: actorId, partyId: pid, name: partyName(pid), count: keys(p.members || {}).length, awards: R.awards.length });
+        delete root.parties[pid]; return root;
+      }
+      R.edited = { at: Date.now(), by: actorId };
+      addLog(root, { type: 'history-edit', by: actorId, partyId: pid, name: partyName(pid), what }); return root;
+    });
+  },
+
   /** หัวตี้ย่อย: a member volunteers (if none yet) or steps down; the opener can set/clear anyone */
   async setLeader(pid, g, mid, actorId) {
     await backend.transaction(`parties/${pid}`, p => {
@@ -690,17 +742,19 @@ const Api = {
       root.cancelled = root.cancelled || {}; const cid = newId('c', 8);
       root.cancelled[cid] = { id: cid, partyId: pid, name: partyName(pid), day: partyDay(p), createdAt: p.createdAt, createdBy: p.createdBy,
         cancelledAt: Date.now(), cancelledBy: actorId, members: p.members || {}, time: p.time || null, note: p.note || null, bookings: bookingCount(p) };
+      addLog(root, { type: 'party-cancel', by: actorId, partyId: pid, name: partyName(pid) });
       delete root.parties[pid]; return root;
     });
   },
 
   /** opener removes someone before the party starts */
   async kick(pid, mid, actorId) {
-    await backend.transaction(`parties/${pid}`, p => {
-      ownerCheck(p, actorId);
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid]; ownerCheck(p, actorId);
       if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว เอาคนออกไม่ได้');
       if (mid === p.createdBy) throw new UErr('เอาคนเปิดตี้ออกไม่ได้');
-      dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid]; return p;
+      dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid];
+      addLog(root, { type: 'member-kick', by: actorId, partyId: pid, memberId: mid, name: partyName(pid) }); return root;
     });
   },
 
@@ -734,6 +788,7 @@ const Api = {
       if (!isLive(p)) throw new UErr('ตี้นี้ปิดจองไม่ได้');
       if (p.locked) throw new UErr('ปิดจองไปแล้ว');
       const now = Date.now(); p.locked = { at: now, by: actorId }; p.status = 'started';   // also closes the member list
+      addLog(root, { type: 'party-lock', by: actorId, partyId: pid, name: partyName(pid), count: keys(p.members).length, bookings: bookingCount(p) });
       const ids = bookersOf(p, NECK);
       if (ids.length) {
         const pts = Object.fromEntries(ids.map(id => [id, root.members[id] ? root.members[id].points : 0]));
@@ -774,6 +829,7 @@ const Api = {
       root.vault = root.vault || {};
       res.toVault.forEach(itemId => { const id = newId('v', 6); root.vault[id] = { id, itemId: Number(itemId), addedAt: Date.now(), fromParty: pid, status: 'open' }; });
       p.status = 'done'; p.doneAt = Date.now();
+      addLog(root, { type: 'party-done', by: actorId, partyId: pid, name: partyName(pid), count: keys(p.members).length, awards: res.awards.length, toVault: res.toVault.length });
       p.result = { by: actorId, finishers: res.finishers, awards: res.awards, toVault: res.toVault, pointsBefore: before, pointsAfter: after };
       return root;
     });
@@ -783,7 +839,8 @@ const Api = {
     await backend.transaction('', root => {
       const v = root.vault && root.vault[vid]; if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง');
       const e = eligibility(root, root.members[mid], v.itemId); if (!e.ok) throw new UErr(e.reason);
-      v.requests = v.requests || {}; v.requests[mid] = Date.now(); return root;
+      v.requests = v.requests || {}; v.requests[mid] = Date.now();
+      addLog(root, { type: 'vault-request', by: mid, memberId: mid, itemId: v.itemId }); return root;
     });
   },
   async vaultCancel(vid, mid) {
@@ -1198,12 +1255,12 @@ function neckSectionHtml(p, isOwner, m) {
 function rosterHtml(p, m, isOwner) {
   const live = isLive(p), open = live && !p.locked, n = groupCount(p);
   const myG = m && p.members[m.id] ? groupOf(p, m.id) : 0;
-  let h = `<h2>คนในตี้ (${keys(p.members).length}) · ${n} ปาร์ตี้</h2><p class="sec-sub">ปาร์ตี้ละไม่เกิน ${GROUP_SIZE} คน ไว้จัดตี้ในเกม · แต้มและการจองคิดรวมทั้งรอบ</p><div class="groups">`;
+  let h = `<div class="groups mt2">`;
   for (let g = 1; g <= n; g++) {
     const ids = groupMembers(p, g), seats = groupSeats(DB, p, g), myJob = m ? m.job : '', canIn = !seatBlock(DB, p, g, myJob), full = ids.length >= GROUP_SIZE;
     const lead = leaderOf(p, g);
-    h += `<div class="card group"><div class="group-head"><b>ปาร์ตี้ ${g}</b><span class="muted">${ids.length}/${GROUP_SIZE} คน${myG === g ? ' · คุณอยู่ปาร์ตี้นี้' : ''}</span></div>
-      <div class="group-lead ${lead ? '' : 'none'}">${lead ? `👑 หัวตี้ย่อย: <b>${esc(nameOf(lead))}</b>` : 'ยังไม่มีหัวตี้ย่อย'}${live && myG === g && !lead ? ` <button class="btn btn-outline btn-sm" data-act="lead-me" data-g="${g}">อาสาเป็นหัวตี้ย่อย</button>` : ''}</div>`;
+    h += `<div class="card group"><div class="group-head"><div><b>ปาร์ตี้ ${g}</b> <span class="group-lead ${lead ? '' : 'none'}">${lead ? `👑 หัวตี้ย่อย: <b>${esc(nameOf(lead))}</b>` : 'ยังไม่มีหัวตี้ย่อย'}</span></div><span class="muted">${ids.length}/${GROUP_SIZE} คน</span></div>
+      ${live && myG === g && !lead ? `<div class="lead-offer"><button class="btn btn-outline btn-sm" data-act="lead-me" data-g="${g}">👑 อาสาเป็นหัวตี้ย่อย</button></div>` : ''}`;
     const row = (id, seatNo) => {
       const mm = DB.members[id], bk = myBookings(p, id);
       const mine = m && id === m.id, acts = [];
@@ -1212,9 +1269,10 @@ function rosterHtml(p, m, isOwner) {
       if (live && lead === id && (isOwner || mine)) acts.push(`<button class="btn btn-outline btn-sm" data-act="lead-clear" data-g="${g}">เลิกเป็นหัวตี้ย่อย</button>`);
       if (isOwner && open && id !== p.createdBy) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>`);
       if (!isOwner && mine && open) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="leave">ออกจากตี้</button>`);
-      return `<div class="mem ${mine ? 'me' : ''} ${lead === id ? 'is-lead' : ''}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}${lead === id ? '<span title="หัวตี้ย่อย">👑</span> ' : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
+      const bookState = open ? (bk.length ? 'booked' : 'unbooked') : '';
+      return `<div class="mem ${mine ? 'me' : ''} ${lead === id ? 'is-lead' : ''} ${bookState}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}${lead === id ? '<span title="หัวตี้ย่อย">👑</span> ' : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
         <div class="mem-pts">${mm ? mm.points : 0}<small> แต้ม</small></div>
-        ${bk.length ? `<div class="mem-bk">${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : ''}
+        ${bk.length ? `<div class="mem-bk"><span class="bk-tag ok">✓ จองแล้ว</span>${bk.map(it => `<span class="chip">${esc(shortName(it))}</span>`).join('')}</div>` : (open ? `<div class="mem-bk"><span class="bk-tag no">ยังไม่จอง</span></div>` : '')}
         ${acts.length ? `<div class="mem-act">${acts.join('')}</div>` : ''}</div>`;
     };
     // always 6 seats: 1 = Dark Knight, 2 = Bishop, 3–6 = anyone · empty seats are dashed boxes
@@ -1265,9 +1323,9 @@ function viewParty(r) {
   if (isOwner) {
     const step = (no, title, body, done) => `<div class="step ${done ? 'done' : ''}"><span class="step-no">${done ? '✓' : no}</span><div class="step-main"><div class="step-title">${title}</div>${body}</div></div>`;
     h += `<div class="card panel"><div class="panel-head">จัดการตี้ <span>เห็นเฉพาะคนเปิดตี้</span></div><div class="panel-body steps">` +
-      step(1, 'ชวนเพื่อนเข้าตี้', p.locked ? '<p class="note">ปิดรับคนแล้ว</p>' : `<button class="btn btn-outline btn-block" data-act="copy-link">คัดลอกลิงก์ ส่งใน Discord</button>`, p.locked) +
+      step(1, 'ชวนเพื่อนเข้าตี้', p.locked ? '<p class="note">ปิดรับคนแล้ว</p>' : `<button class="btn btn-gold btn-block" data-act="copy-link">🔗 คัดลอกลิงก์ ส่งใน Discord</button>`, p.locked) +
       step(2, 'ก่อนลงบอส', p.locked ? `<p class="note">ปิดจองแล้ว ${fmtDate(p.locked.at)}</p>` : `<button class="btn btn-primary btn-lg btn-block" data-act="lock">คนครบแล้ว · ปิดจอง · ลงบอส</button><p class="note">ปิดรับคน ล็อกการจองทุกชิ้น เรียงลำดับสร้อยตามแต้ม</p>`, p.locked) +
-      step(3, 'หลังลงบอส', `<button class="btn ${p.locked ? 'btn-primary btn-lg' : 'btn-outline'} btn-block" data-act="go" data-to="#${p.id}/result">จบบอสแล้ว · บันทึกผล</button><p class="note">${p.locked ? 'บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้' : 'ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้านี้'}</p>`, false) +
+      step(3, 'หลังลงบอส', `<button class="btn btn-success ${p.locked ? 'btn-lg' : ''} btn-block" data-act="go" data-to="#${p.id}/result">🏁 จบบอสแล้ว · บันทึกผล</button><p class="note">${p.locked ? 'บอกว่าอะไรดรอป เว็บคิดให้ว่าใครได้' : 'ถ้ายังไม่ได้ปิดจอง เว็บจะปิดให้ตอนเปิดหน้านี้'}</p>`, false) +
       `</div></div>`;
   }
   else h += `<p class="sec-sub">${p.locked ? 'ปิดจองแล้ว · ' : `จองได้จน ${esc(nameOf(p.createdBy))} (คนเปิดตี้) กดปิดจองก่อนลงบอส · `}ลงบอสจบ คนเปิดตี้จะบันทึกว่าใครได้อะไร</p>`;
@@ -1347,6 +1405,24 @@ function deliveredHtml(p) {
   return `<h2>ส่งของจากคลังในตี้นี้ (${ls.length})</h2><div class="card">` + ls.map(l => `<div class="list-row row-between"><div class="item" style="grid-template-columns:40px 1fr;align-items:center">${iconHtml(l.itemId, true)}<div><b>${esc(shortName(l.itemId))}</b> → <b>${esc(nameOf(l.memberId))}</b><div class="note" style="margin:0">หัก ${l.price} แต้ม (${l.before} → ${l.after}) · ${fmtDate(l.at)}</div></div></div><span class="pill green">ส่งแล้ว ✓</span></div>`).join('') + `</div>`;
 }
 
+const awardNote = a => (a.kind === 'free' ? '(แจกฟรี)' : a.kind === 'manual' ? '(แอดมินเพิ่ม · ไม่ได้หักแต้ม)' : `(หัก ${a.price})`);
+/** admin edit panel for one finished round (history only) */
+function histEditHtml(p) {
+  const R = p.result, people = keys(p.members).sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'th'));
+  const opts = sel => people.map(id => `<option value="${id}" ${id === sel ? 'selected' : ''}>${esc(nameOf(id))}</option>`).join('');
+  let h = `<div class="admin-box"><div class="admin-head">🛠 แก้ประวัติ (แอดมิน) <span>แก้แค่ประวัติ แต้มไม่เปลี่ยน</span></div>`;
+  R.awards.forEach((a, i) => {
+    h += `<div class="admin-row"><b>${esc(shortName(a.itemId))}</b><select id="he-w-${p.id}-${i}">${opts(a.memberId)}</select>
+      <button class="btn btn-outline btn-sm" data-act="he-winner" data-pid="${p.id}" data-i="${i}">เปลี่ยนคนได้</button>
+      <button class="btn btn-outline-red btn-sm" data-act="he-remove" data-pid="${p.id}" data-i="${i}">ลบ</button></div>`;
+  });
+  h += `<div class="admin-row"><select id="he-item-${p.id}"><option value="">เลือกของ</option>${ITEMS.map(it => `<option value="${it.id}">${esc(it.name)}</option>`).join('')}</select>
+    <select id="he-mem-${p.id}"><option value="">ให้ใคร</option>${opts('')}</select>
+    <button class="btn btn-outline btn-sm" data-act="he-add" data-pid="${p.id}">+ เพิ่มของ</button></div>
+    <button class="btn btn-outline-red btn-block mt" data-act="he-delete" data-pid="${p.id}">ลบประวัติรอบนี้</button></div>`;
+  return h;
+}
+
 function partyDoneHtml(p) {
   const R = p.result || {};
   if (p.imported) return `<div class="card blue"><b class="card-title">นำเข้าจากระบบเก่า</b><p class="muted" style="margin:0">ไม่ได้บันทึกของที่ดรอป · ทุกคนที่ลงได้ +1 แต้ม</p></div>` + rosterHtml(p, me(), false) + `<h2>แต้มก่อน → หลัง</h2>` + pointsTable(R);
@@ -1355,7 +1431,7 @@ function partyDoneHtml(p) {
   if (!(R.awards || []).length) h += `<div class="card">รอบนี้ไม่มีใครได้ของ</div>`;
   (R.awards || []).forEach(a => {
     h += `<div class="card"><div class="item">${iconHtml(a.itemId)}<div><div class="item-name">${esc(shortName(a.itemId))} → ${esc(nameOf(a.memberId))}</div>
-      <div>${a.kind === 'free' ? 'สุ่มแจกฟรี ไม่หักแต้ม' : `หัก ${a.price} แต้ม`}</div></div></div></div>`;
+      <div>${a.kind === 'free' ? 'สุ่มแจกฟรี ไม่หักแต้ม' : a.kind === 'manual' ? 'แอดมินเพิ่มทีหลัง · ไม่ได้หักแต้ม' : `หัก ${a.price} แต้ม`}</div></div></div></div>`;
   });
   if ((R.toVault || []).length) h += `<div class="card blue"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</div>`;
   h += `<h2>แต้มก่อน → หลัง</h2>` + pointsTable(R);
@@ -1568,13 +1644,20 @@ function viewHistory() {
   const done = vals(DB.parties).filter(p => p.status === 'done').sort((a, b) => partyDay(b).localeCompare(partyDay(a)) || (b.doneAt || 0) - (a.doneAt || 0));
   const legacy = vals(DB.parties).filter(p => p.status === 'cancelled').map(p => ({ id: p.id, partyId: p.id, name: partyName(p.id), day: partyDay(p), createdAt: p.createdAt, createdBy: p.createdBy, cancelledAt: p.cancelledAt || p.createdAt, members: p.members || {}, time: p.time, note: p.note, bookings: bookingCount(p) }));
   const cancelled = [...vals(DB.cancelled), ...legacy].sort((a, b) => b.cancelledAt - a.cancelledAt);
-  const onDone = UI.histTab !== 'cancelled';
-  let h = `<h1>ประวัติ</h1><div class="filter-tabs">
-    <button class="ftab ${onDone ? 'on' : ''}" data-act="hist-tab" data-v="done" aria-pressed="${onDone}">${onDone ? '✓ ' : ''}ตี้ที่จบ <span class="cnt">${done.length}</span></button>
-    <button class="ftab ${!onDone ? 'on' : ''}" data-act="hist-tab" data-v="cancelled" aria-pressed="${!onDone}">${!onDone ? '✓ ' : ''}ตี้ที่ยกเลิก <span class="cnt">${cancelled.length}</span></button></div>
+  const tab = ['done', 'cancelled', 'log'].includes(UI.histTab) ? UI.histTab : 'done', onDone = tab === 'done', logs = vals(DB.log).sort((a, b) => b.at - a.at);
+  const tabBtn = (v, label, n) => `<button class="ftab ${tab === v ? 'on' : ''}" data-act="hist-tab" data-v="${v}" aria-pressed="${tab === v}">${tab === v ? '✓ ' : ''}${label} <span class="cnt">${n}</span></button>`;
+  let h = `<h1>ประวัติ</h1><div class="filter-tabs three">${tabBtn('done', 'ตี้ที่จบ', done.length)}${tabBtn('cancelled', 'ตี้ที่ยกเลิก', cancelled.length)}${tabBtn('log', 'บันทึก', logs.length)}</div>
     <p class="sec-sub">แบ่งตามวันเล่น · ตัดวันตอน 6 โมงเช้า (ตี้หลังเที่ยงคืนนับเป็นของคืนก่อน)</p>`;
   const byDay = (list, dayOf) => { const g = {}; list.forEach(x => { (g[dayOf(x)] = g[dayOf(x)] || []).push(x); }); return Object.entries(g).sort((a, b) => b[0].localeCompare(a[0])); };
 
+  if (tab === 'log') {
+    if (!logs.length) return h + `<div class="card">ยังไม่มีบันทึก</div>`;
+    byDay(logs, l => gameDay(l.at)).forEach(([day, list]) => {
+      h += `<h2>${esc(dayLabel(day))} <span class="day-count">${list.length} รายการ</span></h2><div class="card log-list">` +
+        list.map(l => `<div class="log-row"><span class="log-time">${new Date(l.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span><span>${esc(logText(l))}</span></div>`).join('') + `</div>`;
+    });
+    return h;
+  }
   if (!onDone) {
     if (!cancelled.length) return h + `<div class="card">ยังไม่มีตี้ที่ยกเลิก</div>`;
     byDay(cancelled, c => c.day || gameDay(c.createdAt)).forEach(([day, list]) => {
@@ -1602,15 +1685,15 @@ function viewHistory() {
       else if (open) {
         h += `<h3 class="mt">ใครมา</h3><p>${keys(p.members).map(id => esc(nameOf(id)) + (R.finishers.includes(id) ? '' : ' (ออกก่อน)')).join(', ')}</p>`;
         h += `<h3>ใครจองอะไร</h3>` + (bookedItemIds(p).map(id => `<div class="mt"><b>${esc(shortName(id))}</b>${orderHtml(id === NECK && p.neckOrder ? p.neckOrder.order : bookersOf(p, id))}</div>`).join('') || '<p>ไม่มี</p>');
-        h += `<h3 class="mt">ใครได้</h3>${R.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${a.kind === 'free' ? '(แจกฟรี)' : `(หัก ${a.price})`}</div>`).join('') || '<p>ไม่มี</p>'}`;
+        h += `<h3 class="mt">ใครได้</h3>${R.awards.map(a => `<div>• ${esc(shortName(a.itemId))} → <b>${esc(nameOf(a.memberId))}</b> ${awardNote(a)}</div>`).join('') || '<p>ไม่มี</p>'}`;
+        if (R.edited) h += `<p class="note">แก้ไขล่าสุดโดย ${esc(nameOf(R.edited.by))} · ${fmtDate(R.edited.at)} (แต้มไม่เปลี่ยนตาม)</p>`;
+        if (isAdmin(meId())) h += histEditHtml(p);
         if (R.toVault.length) h += `<p class="mt"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</p>`;
         h += `<h3 class="mt">แต้มก่อน / หลัง</h3>` + pointsTable(R);
       }
       h += `</div>`;
     });
   });
-  const logs = vals(DB.log).sort((a, b) => b.at - a.at);
-  h += `<h2>ส่งของจากคลัง / คนสมัครใหม่ / เปลี่ยนชื่อ</h2>` + (logs.length ? logs.map(l => `<div class="card"><div class="muted">${fmtDate(l.at)}${l.type === 'vault-deliver' ? ' · ' + esc(nameOf(l.by)) + ' เป็นคนส่ง' : ''}</div><b>${esc(logText(l))}</b></div>`).join('') : '<div class="card">ยังไม่มี</div>');
   return h;
 }
 function logText(l) {
@@ -1618,6 +1701,14 @@ function logText(l) {
     case 'vault-deliver': return `${shortName(l.itemId)} → ${nameOf(l.memberId)} (แต้ม ${l.before} → ${l.after})`;
     case 'member-register': return `${l.name} สมัครใหม่`;
     case 'member-rename': return `${l.from} เปลี่ยนชื่อเป็น ${l.to}`;
+    case 'party-open': return `${nameOf(l.by)} เปิด${l.name}`;
+    case 'party-cancel': return `${nameOf(l.by)} ยกเลิก${l.name}`;
+    case 'party-lock': return `${nameOf(l.by)} ปิดจอง${l.name} (${l.count} คน · จอง ${l.bookings} ชิ้น)`;
+    case 'party-done': return `${nameOf(l.by)} บันทึกผล${l.name} (${l.count} คน +1 แต้ม · ได้ของ ${l.awards} ชิ้น${l.toVault ? ` · เข้าคลัง ${l.toVault}` : ''})`;
+    case 'member-kick': return `${nameOf(l.by)} เอา ${nameOf(l.memberId)} ออกจาก${l.name}`;
+    case 'vault-request': return `${nameOf(l.memberId)} ขอแลก ${shortName(l.itemId)} จากคลัง`;
+    case 'history-edit': return `${nameOf(l.by)} (แอดมิน) แก้ประวัติ${l.name}: ${l.what}`;
+    case 'history-delete': return `${nameOf(l.by)} (แอดมิน) ลบประวัติ${l.name} (${l.count} คน · ได้ของ ${l.awards} ชิ้น) · แต้มไม่เปลี่ยน`;
     default: return l.type;
   }
 }
@@ -1900,6 +1991,13 @@ const ACT = {
   'modal-close': () => closeModal(),
   'hist-toggle': el => { UI.openHist[el.dataset.id] = el.dataset.open !== '1'; render(); },
   'hist-tab': el => { UI.histTab = el.dataset.v; render(); },
+  'he-winner': el => { const pid = el.dataset.pid, i = Number(el.dataset.i), mid = document.getElementById(`he-w-${pid}-${i}`).value; run(() => Api.histEdit(pid, meId(), { kind: 'winner', i, memberId: mid }), 'แก้แล้ว ✓'); },
+  'he-remove': async el => { const pid = el.dataset.pid, i = Number(el.dataset.i), a = DB.parties[pid].result.awards[i];
+    if (await confirmBox({ title: 'ลบรายการนี้?', body: `${esc(shortName(a.itemId))} → ${esc(nameOf(a.memberId))}<br>แก้แค่ประวัติ แต้มไม่คืน`, ok: 'ลบ', okClass: 'btn-danger', cancel: 'ไม่ลบ' })) run(() => Api.histEdit(pid, meId(), { kind: 'remove', i }), 'ลบแล้ว ✓'); },
+  'he-add': el => { const pid = el.dataset.pid, itemId = document.getElementById(`he-item-${pid}`).value, mid = document.getElementById(`he-mem-${pid}`).value;
+    if (!itemId || !mid) return toast('เลือกของและคนก่อน', 'err'); run(() => Api.histEdit(pid, meId(), { kind: 'add', itemId, memberId: mid }), 'เพิ่มแล้ว ✓'); },
+  'he-delete': async el => { const pid = el.dataset.pid;
+    if (await confirmBox({ title: `ลบประวัติ${esc(partyName(pid))}?`, body: '<b>แต้มของทุกคนไม่เปลี่ยน</b> (ถ้าต้องคืนแต้มต้องแก้ใน Firebase เอง)<br>ลบแล้วกู้ไม่ได้ แต่ในแท็บ "บันทึก" จะมีบันทึกว่าใครลบ', ok: 'ลบประวัติ', okClass: 'btn-danger', cancel: 'ไม่ลบ' })) run(() => Api.histEdit(pid, meId(), { kind: 'delete' }), 'ลบประวัติแล้ว ✓'); },
   // demo
   'demo-as': () => { const id = UI.demoPick; if (!DB.members[id]) return; UI.login = null; ss.set('htloot-me', id); ls.set('htloot-last', id); toast(`ตอนนี้คุณคือ ${DB.members[id].name} ✓`); render(); window.scrollTo(0, 0); },
   'demo-reset': async () => {
@@ -1933,7 +2031,7 @@ const CHANGE = {
 document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.disabled) return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
 document.addEventListener('input', e => { const fn = INPUT[e.target.dataset.input]; if (fn) fn(e.target); });
 document.addEventListener('change', e => { const fn = CHANGE[e.target.dataset.change]; if (fn) fn(e.target); });
-window.addEventListener('hashchange', () => { UI.login = null; render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { UI.login = null; if (UI.rolling) { closeModal(); UI.rolling = false; } render(); window.scrollTo(0, 0); });   // party pop-ups don't follow you to other pages
 
 /* boot */
 const BOOT = { error: null, online: null };
@@ -1954,7 +2052,7 @@ function normalize(snap) {
 (async () => {
   try {
     if (!backend) {
-      document.getElementById('app').innerHTML = '<p class="lead mt2">กำลังเชื่อมต่อ…</p>';
+      document.getElementById('app').innerHTML = loaderHtml('กำลังเชื่อมต่อ…');
       backend = await createFirebaseBackend(FIREBASE_CONFIG, on => { BOOT.online = on; if (DB) renderTopbar(); });
     }
     backend.subscribe(snap => {
