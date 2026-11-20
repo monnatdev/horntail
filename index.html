@@ -194,6 +194,9 @@ table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:15px;ba
 
 .rules ol{padding-left:22px;font-size:15px;margin:0}.rules li{margin-bottom:8px}.rules li:last-child{margin-bottom:0}
 
+.party-info{display:inline-flex;flex-wrap:wrap;gap:4px 10px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:6px 12px;font-size:15px;margin:-8px 0 14px}
+input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-width:200px;padding:6px 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;color:var(--text)}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -556,13 +559,15 @@ const Api = {
     });
   },
 
-  async createParty(mid) {
+  async createParty(mid, opts = {}) {
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(opts.time || '') ? opts.time : '';
+    const note = String(opts.note || '').replace(/\s+/g, ' ').trim().slice(0, 100);
     let id;
     await backend.transaction('parties', all => {   // atomic: two people opening at once get round N and N+1
       all = all || {}; const now = Date.now(); let n = 1;
       while (all[partyIdOf(now, n)] && all[partyIdOf(now, n)].status !== 'cancelled') n++;   // old cancelled ones don't count
       id = partyIdOf(now, n);
-      all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1 };   // join + book right away
+      all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1, ...(time ? { time } : {}), ...(note ? { note } : {}) };   // join + book right away
       return all;
     });
     return id;
@@ -1030,6 +1035,8 @@ function viewSetup() {
 }
 
 const cancelBtnHtml = () => `<div class="mt2" style="text-align:center"><button class="link-btn" data-act="cancel-party">ยกเลิกตี้นี้</button><p class="note">เช่น คนไม่ครบ ไม่ได้ลง · ยกเลิกแล้วไม่มีใครได้แต้ม</p></div>`;
+/** "⏰ 20:30 · 📝 note" when the opener filled them in */
+const partyInfo = p => [p.time ? `⏰ เวลา ${esc(p.time)}` : '', p.note ? `📝 ${esc(p.note)}` : ''].filter(Boolean).join(' · ');
 function partyStatus(p) {
   return isLive(p) ? (p.locked ? '<span class="pill gray">ปิดจองแล้ว · ลงบอส</span>' : '<span class="pill green">เปิดรับคน · จองของได้</span>') : p.status === 'cancelled' ? '<span class="pill red">ยกเลิกแล้ว</span>' : '<span class="pill done">✓ จบแล้ว</span>';
 }
@@ -1043,7 +1050,7 @@ function viewHome() {
       <button class="btn btn-primary btn-xl btn-block" data-act="new-party">เปิดตี้ใหม่</button>
       <button class="btn btn-outline btn-xl btn-block" data-act="go-me">ดูแต้มของฉัน</button>
     </div>
-    ${live.length ? `<h2>ตี้วันนี้</h2>` + live.map(p => `<div class="card row-between ${p.status === 'done' ? 'party-done' : ''}"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div></div>
+    ${live.length ? `<h2>ตี้วันนี้</h2>` + live.map(p => `<div class="card row-between ${p.status === 'done' ? 'party-done' : ''}"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${p.time ? `⏰ ${esc(p.time)} · ` : ''}${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div>${p.note ? `<div class="muted">📝 ${esc(p.note)}</div>` : ''}</div>
       <button class="btn btn-outline" data-act="go" data-to="#${p.id}">เข้าไปดู</button></div>`).join('') : ''}
     <button class="btn btn-outline btn-block mt2" data-act="menu-toggle" aria-expanded="${UI.menuOpen}">${UI.menuOpen ? 'ซ่อนเมนู ▴' : 'เมนูอื่นๆ (กติกา คลังของ ประวัติ) ▾'}</button>
     ${!UI.menuOpen ? '' : `<div class="menu-grid mt">
@@ -1169,7 +1176,7 @@ function viewParty(r) {
   if (!p) return `<h1>ไม่เจอตี้นี้</h1><p class="lead">ตี้นี้อาจถูกยกเลิกไปแล้ว หรือลิงก์ผิด ลองขอลิงก์ใหม่จากคนเปิดตี้</p><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
   const m = me(), isMember = m && p.members[m.id], isOwner = m && p.createdBy === m.id;
   const memberIds = keys(p.members).sort((a, b) => p.members[a] - p.members[b]);
-  let h = `<h1>${esc(partyName(p.id))}</h1><p class="lead">${partyStatus(p)} · ${p.imported ? 'นำเข้าจากระบบเก่า' : esc(nameOf(p.createdBy)) + ' เป็นคนเปิด'} · ${memberIds.length} คน</p>`;
+  let h = `<h1>${esc(partyName(p.id))}</h1><p class="lead">${partyStatus(p)} · ${p.imported ? 'นำเข้าจากระบบเก่า' : esc(nameOf(p.createdBy)) + ' เป็นคนเปิด'} · ${memberIds.length} คน</p>${partyInfo(p) ? `<div class="party-info">${partyInfo(p)}</div>` : ''}`;
 
   if (p.status === 'cancelled') return h + `<div class="card red"><b class="card-title">ตี้นี้ยกเลิกแล้ว</b><p class="muted">${p.cancelledAt ? fmtDate(p.cancelledAt) + ' · ' : ''}ไม่มีใครได้แต้ม ของที่จองไว้ยกเลิกหมด</p></div><button class="btn btn-primary btn-block" data-act="home">กลับหน้าแรก</button>`;
 
@@ -1693,9 +1700,16 @@ const ACT = {
   },
   'pin-set': async () => { const L = UI.login; await run(() => Api.setPin(L.memberId, L.pin)); if (DB.members[L.memberId].pinHash) { toast('ตั้งรหัสแล้ว ✓'); signIn(L.memberId); } },
   'go-me': () => requireMe(() => go('#/me')),
-  'new-party': () => requireMe(async () => {
-    if (!(await confirmBox({ title: 'เปิดตี้ใหม่?', body: 'คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งให้เพื่อนใน Discord<br>เปิดแล้วเพื่อนเข้าตี้และจองของได้เลย · คนเปิดตี้กดปิดจองก่อนลงบอส และบันทึกผลหลังลงบอส', ok: 'เปิดตี้ใหม่' }))) return;
-    const id = await run(() => Api.createParty(meId()), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
+  'new-party': () => requireMe(() => {
+    openModal(`<h2>เปิดตี้ใหม่</h2><div class="modal-body"><p class="muted">คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งใน Discord · เปิดแล้วเพื่อนเข้าตี้และจองของได้เลย</p>
+      <label class="big-label mt" for="np-time">เวลาลงบอส <span class="muted">(ไม่ใส่ก็ได้)</span></label><input id="np-time" type="time" step="60">
+      <label class="big-label mt" for="np-note">หมายเหตุ <span class="muted">(ไม่ใส่ก็ได้ · ไม่เกิน 100 ตัว)</span></label><input id="np-note" type="text" maxlength="100" autocomplete="off" placeholder="เช่น ch 5 · รวมที่ Leafre"></div>
+      <div class="stack"><button class="btn btn-primary btn-lg btn-block" id="np-ok">เปิดตี้ใหม่</button><button class="btn btn-outline-red btn-lg btn-block" id="np-cancel">ยกเลิก</button></div>`);
+    modalRoot.querySelector('#np-cancel').onclick = closeModal;
+    modalRoot.querySelector('#np-ok').onclick = async () => {
+      const time = modalRoot.querySelector('#np-time').value, note = modalRoot.querySelector('#np-note').value; closeModal();
+      const id = await run(() => Api.createParty(meId(), { time, note }), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
+    };
   }),
   join: el => {
     const pid = route().pid, g = Number(el.dataset.g || 0);
