@@ -634,7 +634,7 @@ const addLog = (root, entry) => { root.log = root.log || {}; const id = newId('l
 // แอดมินแก้ประวัติตี้ที่จบแล้วได้ (แต้มไม่เปลี่ยน) · m19 = โม, m16 = รัก (รหัสตามไฟล์นำเข้า · แก้รายชื่อที่นี่)
 const ADMIN_IDS = ['m19', 'm16'];
 const isAdmin = mid => ADMIN_IDS.includes(mid);
-const adminCheck = actorId => { if (!isAdmin(actorId)) throw new UErr('แอดมินเท่านั้นที่แก้ประวัติได้'); };
+const adminCheck = actorId => { if (!isAdmin(actorId)) throw new UErr('แอดมินเท่านั้นที่ทำได้'); };
 const ownerCheck = (p, actorId) => { if (!p) throw new UErr('ไม่พบตี้นี้'); if (p.createdBy !== actorId) throw new UErr('คนเปิดตี้เท่านั้นที่กดได้'); };
 const Api = {
   async resetDemo() { await backend.set('', seedData()); },
@@ -880,6 +880,17 @@ const Api = {
       const e = eligibility(root, root.members[mid], v.itemId); if (!e.ok) throw new UErr(e.reason);
       v.requests = v.requests || {}; v.requests[mid] = Date.now();
       addLog(root, { type: 'vault-request', by: mid, memberId: mid, itemId: v.itemId }); return root;
+    });
+  },
+  /** admin: put items into the vault by hand (e.g. drops recorded outside the web) */
+  async vaultAdd(itemId, qty, actorId) {
+    await backend.transaction('', root => {
+      adminCheck(actorId);
+      if (!ITEM[itemId]) throw new UErr('เลือกของก่อน');
+      if (itemId === NECK) throw new UErr('สร้อยฮอลเทรดไม่ได้ เข้าคลังไม่ได้');
+      qty = Math.max(1, Math.min(5, Number(qty) || 1)); root.vault = root.vault || {};
+      for (let i = 0; i < qty; i++) { const id = newId('v', 6); root.vault[id] = { id, itemId: Number(itemId), addedAt: Date.now(), fromParty: 'manual', addedBy: actorId }; }
+      addLog(root, { type: 'vault-add', by: actorId, itemId: Number(itemId), qty }); return root;
     });
   },
   async vaultCancel(vid, mid) {
@@ -1665,6 +1676,10 @@ function viewVault() {
   const m = me();
   const list = vals(DB.vault).sort((a, b) => price(b.itemId) - price(a.itemId) || a.addedAt - b.addedAt);
   let h = `<h1>คลังของ</h1><p class="lead">ของที่ไม่มีใครเอา · แต้มพอก็กด "ขอแลก" ได้ตลอด · ได้ของตอนมีตี้กำลังเล่น · ขอหลายคน แต้มมากสุดได้ (เท่ากันสุ่ม)</p>`;
+  if (m && isAdmin(m.id)) h += `<div class="admin-box"><div class="admin-head">🛠 เพิ่มของเข้าคลัง (แอดมิน) <span>เช่น ของที่ดรอปแต่ไม่ได้บันทึกในเว็บ</span></div>
+    <div class="admin-row"><select id="va-item"><option value="">เลือกของ</option>${ITEMS.filter(it => it.id !== NECK).map(it => `<option value="${it.id}">${esc(it.name)} (${price(it.id)} แต้ม)</option>`).join('')}</select>
+      <select id="va-qty" style="flex:0 0 90px">${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n} ชิ้น</option>`).join('')}</select>
+      <button class="btn btn-primary btn-sm" data-act="vault-add">+ เพิ่มเข้าคลัง</button></div></div>`;
   if (!list.length) return h + `<div class="card">คลังว่าง</div>`;
   list.forEach(v => {
     const it = itemOf(v.itemId), reqIds = keys(v.requests);
@@ -1751,6 +1766,7 @@ function logText(l) {
     case 'party-lock': return `${nameOf(l.by)} ปิดจอง${l.name} (${l.count} คน · จอง ${l.bookings} ชิ้น)`;
     case 'party-done': return `${nameOf(l.by)} บันทึกผล${l.name} (${l.count} คน +1 แต้ม · ได้ของ ${l.awards} ชิ้น${l.toVault ? ` · เข้าคลัง ${l.toVault}` : ''})`;
     case 'member-kick': return `${nameOf(l.by)} เอา ${nameOf(l.memberId)} ออกจาก${l.name}`;
+    case 'vault-add': return `${nameOf(l.by)} (แอดมิน) เพิ่ม ${shortName(l.itemId)}${l.qty > 1 ? ' ×' + l.qty : ''} เข้าคลัง`;
     case 'vault-request': return `${nameOf(l.memberId)} ขอแลก ${shortName(l.itemId)} จากคลัง`;
     case 'history-edit': return `${nameOf(l.by)} (แอดมิน) แก้ประวัติ${l.name}: ${l.what}`;
     case 'history-delete': return `${nameOf(l.by)} (แอดมิน) ลบประวัติ${l.name} (${l.count} คน · ได้ของ ${l.awards} ชิ้น) · แต้มไม่เปลี่ยน`;
@@ -2019,6 +2035,12 @@ const ACT = {
     if (DB.parties[p.id].status === 'done') { delete UI.drafts[p.id]; go('#' + p.id); }
   },
   // vault (requests on vault page, actions by party opener on party page)
+  'vault-add': async () => {
+    const itemId = Number(document.getElementById('va-item').value), qty = Number(document.getElementById('va-qty').value);
+    if (!itemId) return toast('เลือกของก่อน', 'err');
+    if (await confirmBox({ title: 'เพิ่มเข้าคลัง?', body: `<div class="item">${iconHtml(itemId)}<div><div class="item-name">${esc(itemOf(itemId).name)}</div><span class="price">${price(itemId)} แต้ม</span></div></div><p class="mt">จำนวน ${qty} ชิ้น · มีบันทึกในแท็บ "บันทึก" ว่าใครเพิ่ม</p>`, ok: 'เพิ่มเข้าคลัง' }))
+      run(() => Api.vaultAdd(itemId, qty, meId()), `เพิ่ม${thName(itemId)}เข้าคลังแล้ว ✓`);
+  },
   'vault-request': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ขอ ${esc(shortName(v.itemId))}?`, body: `ราคา ${price(v.itemId)} แต้ม · ตอนนี้ยังไม่หักแต้ม<br>ได้ของตอนมีตี้กำลังเล่น · ถ้ามีคนขอหลายคน แต้มมากสุดได้`, ok: 'ขอเลย' })) run(() => Api.vaultRequest(v.id, meId()), `ขอ${thName(v.itemId)}แล้ว ✓`); },
   'vault-cancel': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ยกเลิกที่ขอ ${esc(shortName(v.itemId))}?`, ok: 'ยกเลิกที่ขอ', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' })) run(() => Api.vaultCancel(v.id, meId()), 'ยกเลิกแล้ว ✓'); },
   'vault-tie': async el => {
