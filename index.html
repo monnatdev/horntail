@@ -609,14 +609,20 @@ const DAY_START_HOUR = 6;
 const gameDay = ts => ymd(ts - DAY_START_HOUR * 3600e3);           // 'YYYYMMDD' of the play day
 const partyIdOf = (ts, n) => `party-${gameDay(ts)}-${n}`;
 /** play day of a party: from its id (party-YYYYMMDD-N), else from when it was opened */
-const partyDay = p => { const m = /^party-(\d{8})-/.exec(p.id || ''); return m ? m[1] : gameDay(p.createdAt || 0); };
+const partyDay = p => { if (p.day) return String(p.day); const m = /^party-(\d{8})-/.exec(p.id || ''); return m ? m[1] : gameDay(p.createdAt || 0); };
+const partyRound = p => { if (p.round) return Number(p.round); const m = /^party-\d{8}-(\d+)$/.exec(p.id || ''); return m ? Number(m[1]) : 0; };
+const dayDate = key => new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8));
+const addDays = (key, n) => { const d = dayDate(key); d.setDate(d.getDate() + n); return ymd(d.getTime()); };
+const weekday = key => dayDate(key).toLocaleDateString('th-TH', { weekday: 'long' }).replace(/^วัน/, '');   // "เสาร์"
+/** "(วันนี้)" / "(พรุ่งนี้)" next to a day */
+const dayRel = key => { const t = gameDay(Date.now()); return key === t ? 'วันนี้' : key === addDays(t, 1) ? 'พรุ่งนี้' : key === addDays(t, -1) ? 'เมื่อวาน' : ''; };
 const dayLabel = key => new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8)).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short', year: '2-digit' });
 /** "ตี้ 17 พ.ย. 69 · รอบที่ 2" (falls back to raw id for old-format ids) */
 function partyName(pid) {
-  const m = /^party-(\d{4})(\d{2})(\d{2})-(\d+)$/.exec(pid || '');
-  if (!m) return `ตี้ #${pid}`;
-  const d = new Date(+m[1], +m[2] - 1, +m[3]);
-  return `ตี้ ${d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} · รอบที่ ${m[4]}`;
+  const p = (typeof DB !== 'undefined' && DB && DB.parties && DB.parties[pid]) || { id: pid };
+  if (!p.day && !/^party-\d{8}-\d+$/.test(pid || '')) return `ตี้ #${pid}`;
+  const day = partyDay(p);
+  return `ตี้ ${weekday(day)} ${dayDate(day).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} · รอบที่ ${partyRound(p)}`;
 }
 const addLog = (root, entry) => { root.log = root.log || {}; const id = newId('l', 8); root.log[id] = { id, at: Date.now(), ...entry }; };
 
@@ -652,15 +658,19 @@ const Api = {
       });
       return root;
     });
+    const today = gameDay(Date.now()), day = /^\d{8}$/.test(opts.day || '') ? opts.day : today;
+    if (day < today || day > addDays(today, 7)) throw new UErr('เลือกวันได้ตั้งแต่วันนี้ถึงอีก 7 วัน');
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(opts.time || '') ? opts.time : '';
     const note = String(opts.note || '').replace(/\s+/g, ' ').trim().slice(0, 100);
     let id;
     await backend.transaction('', root => {   // atomic: two people opening at once get round N and N+1
-      root.parties = root.parties || {}; const all = root.parties, now = Date.now(); let n = 1;
-      while (all[partyIdOf(now, n)] && all[partyIdOf(now, n)].status !== 'cancelled') n++;   // old cancelled ones don't count
-      id = partyIdOf(now, n);
+      root.parties = root.parties || {}; const all = root.parties, now = Date.now();
+      // next free round of that day (rounds moved in by a day override count too; cancelled ones don't)
+      const used = new Set(vals(all).filter(x => x.status !== 'cancelled' && partyDay(x) === day).map(partyRound));
+      let n = 1; while (used.has(n) || (all[`party-${day}-${n}`] && all[`party-${day}-${n}`].status !== 'cancelled')) n++;
+      id = `party-${day}-${n}`;
       all[id] = { id, createdAt: now, createdBy: mid, status: 'started', startedAt: now, members: { [mid]: now }, slots: { [mid]: 1 }, groupCount: 1, ...(time ? { time } : {}), ...(note ? { note } : {}) };   // join + book right away
-      addLog(root, { type: 'party-open', by: mid, partyId: id, name: partyName(id) });
+      addLog(root, { type: 'party-open', by: mid, partyId: id, name: `ตี้ ${weekday(day)} ${dayDate(day).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} · รอบที่ ${n}` });
       return root;
     });
     return id;
@@ -1183,15 +1193,19 @@ function partyStatus(p) {
 
 function viewHome() {
   const today = gameDay(Date.now());
-  const live = vals(DB.parties).filter(p => isLive(p) || (p.status === 'done' && !p.imported && partyDay(p) === today)).sort((a, b) => (a.status === 'done') - (b.status === 'done') || b.createdAt - a.createdAt);
+  const live = vals(DB.parties).filter(p => isLive(p) || (p.status === 'done' && !p.imported && partyDay(p) === today));
+  const days = {}; live.forEach(p => { (days[partyDay(p)] = days[partyDay(p)] || []).push(p); });
+  const partyCard = p => `<div class="card row-between ${p.status === 'done' ? 'party-done' : ''}"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${p.time ? `⏰ ${esc(p.time)} · ` : ''}${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div>${p.note ? `<div class="muted">📝 ${esc(p.note)}</div>` : ''}</div>
+      <button class="btn btn-outline" data-act="go" data-to="#${p.id}">เข้าไปดู</button></div>`;
+  const liveHtml = Object.keys(days).sort().map(k => `<h2>${esc(dayLabel(k))}${dayRel(k) ? ` <span class="day-count">${dayRel(k)}</span>` : ''}</h2>` +
+    days[k].sort((a, b) => (a.status === 'done') - (b.status === 'done') || partyRound(a) - partyRound(b)).map(partyCard).join('')).join('');
   const tile = (title, desc, attrs) => `<button class="tile" ${attrs}><span class="tile-title">${title}</span><span class="tile-desc">${desc}</span></button>`;
   return `<h1>จองของบอส Horntail</h1><p class="lead">เปิดตี้ ส่งลิงก์ให้เพื่อน แล้วจองของที่อยากได้ ระบบดูแต้มและนับแต้มให้</p>
     <div class="hero-actions">
       <button class="btn btn-primary btn-xl btn-block" data-act="new-party">เปิดตี้ใหม่</button>
       <button class="btn btn-outline btn-xl btn-block" data-act="go-me">ดูแต้มของฉัน</button>
     </div>
-    ${live.length ? `<h2>ตี้วันนี้</h2>` + live.map(p => `<div class="card row-between ${p.status === 'done' ? 'party-done' : ''}"><div><b>${esc(partyName(p.id))}</b> ${partyStatus(p)}<div class="muted">${p.time ? `⏰ ${esc(p.time)} · ` : ''}${keys(p.members).length} คน · ${esc(nameOf(p.createdBy))} เป็นคนเปิด</div>${p.note ? `<div class="muted">📝 ${esc(p.note)}</div>` : ''}</div>
-      <button class="btn btn-outline" data-act="go" data-to="#${p.id}">เข้าไปดู</button></div>`).join('') : ''}
+    ${liveHtml}
     <button class="btn btn-outline btn-block mt2" data-act="menu-toggle" aria-expanded="${UI.menuOpen}">${UI.menuOpen ? 'ซ่อนเมนู ▴' : 'เมนูอื่นๆ (กติกา คลังของ ประวัติ) ▾'}</button>
     ${!UI.menuOpen ? '' : `<div class="menu-grid mt">
       ${tile('กติกา', 'แต้มได้มายังไง จองยังไง ใครได้ของ', 'data-act="go" data-to="#/rules"')}
@@ -1912,13 +1926,14 @@ const ACT = {
   'go-me': () => requireMe(() => go('#/me')),
   'new-party': () => requireMe(() => {
     openModal(`<h2>เปิดตี้ใหม่</h2><div class="modal-body"><p class="muted">คุณจะเป็นคนเปิดตี้ ได้ลิงก์ไปส่งใน Discord · เปิดแล้วเพื่อนเข้าตี้และจองของได้เลย</p>
+      <label class="big-label mt" for="np-day">วันที่ลงบอส</label><select id="np-day">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const k = addDays(gameDay(Date.now()), i); return `<option value="${k}">${esc(dayLabel(k))}${dayRel(k) ? ' (' + dayRel(k) + ')' : ''}</option>`; }).join('')}</select>
       <label class="big-label mt" for="np-time">เวลาลงบอส <span class="muted">(ไม่ใส่ก็ได้)</span></label><input id="np-time" type="time" step="60">
       <label class="big-label mt" for="np-note">หมายเหตุ <span class="muted">(ไม่ใส่ก็ได้ · ไม่เกิน 100 ตัว)</span></label><input id="np-note" type="text" maxlength="100" autocomplete="off" placeholder="เช่น ch 5 · รวมที่ Leafre"></div>
       <div class="stack"><button class="btn btn-primary btn-lg btn-block" id="np-ok">เปิดตี้ใหม่</button><button class="btn btn-outline-red btn-lg btn-block" id="np-cancel">ยกเลิก</button></div>`);
     modalRoot.querySelector('#np-cancel').onclick = closeModal;
     modalRoot.querySelector('#np-ok').onclick = async () => {
-      const time = modalRoot.querySelector('#np-time').value, note = modalRoot.querySelector('#np-note').value; closeModal();
-      const id = await run(() => Api.createParty(meId(), { time, note }), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
+      const day = modalRoot.querySelector('#np-day').value, time = modalRoot.querySelector('#np-time').value, note = modalRoot.querySelector('#np-note').value; closeModal();
+      const id = await run(() => Api.createParty(meId(), { day, time, note }), 'เปิดตี้แล้ว ✓ คัดลอกลิงก์ไปส่งเพื่อนได้เลย'); if (id) go('#' + id);
     };
   }),
   join: el => {
