@@ -264,6 +264,19 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 .admin-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--amber-b)}
 .admin-row select{width:auto;min-height:36px;font-size:14px;padding:2px 8px;flex:1 1 140px}
 
+.ledger{display:grid;gap:6px}
+.led-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.led-row.start{background:var(--bg2)}
+.led-row.adjust{background:var(--amber-l);border-color:var(--amber-b)}
+.led-title{font-weight:700}
+.led-title a{color:var(--blue-t)}
+.led-row .muted{font-size:13px}
+.led-num{text-align:right;font-variant-numeric:tabular-nums}
+.led-num b{display:block;font-size:20px;line-height:1.1}
+.led-num small{color:var(--text2);font-size:12px;white-space:nowrap}
+tr.tap{cursor:pointer}
+tr.tap:hover td{background:var(--blue-l)}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -1041,7 +1054,8 @@ const myRunningParty = () => vals(DB.parties).find(p => isLive(p) && p.createdBy
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('party-')) { const [pid, sub] = h.split('/'); return { name: sub === 'result' ? 'result' : 'party', pid }; }
-  return { name: h.replace(/^\//, '') || 'home' };
+  const [name, arg] = h.replace(/^\//, '').split('/');
+  return { name: name || 'home', arg };
 }
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; window.scrollTo(0, 0); }
 
@@ -1648,27 +1662,63 @@ function viewMe() {
   const reqs = vals(DB.vault).filter(v => v.requests && v.requests[m.id]);
   h += `<h2>ของที่ฉันขอจากคลัง</h2>` + (reqs.length ? reqs.map(v => `<div class="card"><b>${esc(shortName(v.itemId))}</b> · ${price(v.itemId)} แต้ม<div class="muted">${vaultStatusText(v, m.id)}</div></div>`).join('') : '<div class="card">ยังไม่ได้ขอ</div>');
   h += `<button class="btn btn-outline btn-block" data-act="go" data-to="#/vault">ไปที่คลังของ</button>`;
-  const rows = [];
-  vals(DB.parties).filter(p => p.status === 'done' && p.result && p.result.pointsBefore && m.id in p.result.pointsBefore).forEach(p => {
-    const got = p.result.awards.filter(a => a.memberId === m.id).map(a => shortName(a.itemId)).join(', ');
-    rows.push({ at: p.doneAt, what: `${partyName(p.id)}${got ? ' · ได้ ' + got : ''}${myBookings(p, m.id).length ? ' · จอง ' + myBookings(p, m.id).map(shortName).join(', ') : ''}`, b: p.result.pointsBefore[m.id], a: p.result.pointsAfter[m.id] });
-  });
-  vals(DB.log).filter(l => l.memberId === m.id && 'before' in l).forEach(l => rows.push({ at: l.at, what: `ได้จากคลัง: ${shortName(l.itemId)}`, b: l.before, a: l.after }));
-  rows.sort((a, b) => b.at - a.at);
-  h += `<h2>แต้มของฉันเปลี่ยนเมื่อไหร่</h2>` + (rows.length ? `<div class="table-scroll"><table class="tbl"><tr><th>เมื่อไหร่ / อะไร</th><th class="num">ก่อน → หลัง</th></tr>${rows.map(r => `<tr><td>${fmtDate(r.at)}<br><b>${esc(r.what)}</b></td><td class="num">${r.b} → <b>${r.a}</b> <span class="${r.a - r.b >= 0 ? 'up' : 'down'}">(${r.a - r.b >= 0 ? '+' : ''}${r.a - r.b})</span></td></tr>`).join('')}</table></div>` : '<div class="card">ยังไม่มี</div>');
+  h += `<h2>แต้มของฉันเปลี่ยนเมื่อไหร่</h2><p class="sec-sub">ล่าสุดอยู่บน · เลขขวาคือแต้มที่เหลือหลังรายการนั้น · ถ้าแต้มไม่ตรง ทักแอดมินพร้อมแคปหน้านี้</p>` + ledgerHtml(m.id);
   return h;
 }
 
+/* ---- points ledger: every +/- of one member, oldest first ----
+   rows come from finished parties (+1 and item cost) and vault hand-overs; when one row's "before"
+   doesn't match the previous "after" (or the last "after" ≠ current points) the difference was changed
+   outside the web (Firebase console) and is shown as its own row so the total always adds up */
+function ledgerOf(mid) {
+  const ev = [];
+  vals(DB.parties).filter(p => p.status === 'done' && p.result && p.result.pointsBefore && mid in p.result.pointsBefore).forEach(p => {
+    const R = p.result, got = (R.awards || []).filter(a => a.memberId === mid && a.kind !== 'manual');
+    const parts = [];
+    if ((R.finishers || []).includes(mid)) parts.push('ลงบอส +1');
+    got.forEach(a => parts.push(`ได้ ${shortName(a.itemId)} −${a.price}`));
+    ev.push({ at: p.doneAt || p.createdAt, title: partyName(p.id) + (p.imported ? ' (ระบบเก่า)' : ''), detail: parts.join(' · '), before: R.pointsBefore[mid], after: R.pointsAfter[mid], link: '#' + p.id });
+  });
+  vals(DB.log).filter(l => l.type === 'vault-deliver' && l.memberId === mid && 'before' in l)
+    .forEach(l => ev.push({ at: l.at, title: 'ได้ของจากคลัง', detail: `${shortName(l.itemId)} −${l.price}`, before: l.before, after: l.after }));
+  ev.sort((a, b) => a.at - b.at);
+  const m = DB.members[mid], rows = [];
+  const start = ev.length ? ev[0].before : (m ? m.points : 0);
+  rows.push({ kind: 'start', title: 'แต้มตั้งต้น', detail: m && m.selfRegistered ? 'สมัครใหม่ในเว็บ เริ่มที่ 0' : 'ยกมาจากระบบเก่า (ไฟล์ Excel)', delta: start, after: start });
+  let bal = start;
+  const gap = (to, at) => { if (to !== bal) { rows.push({ kind: 'adjust', at, title: 'แอดมินปรับแต้ม (นอกเว็บ)', detail: 'แก้ใน Firebase โดยตรง ไม่มีรายละเอียดในเว็บ', delta: to - bal, after: to }); bal = to; } };
+  ev.forEach(e => { gap(e.before, e.at); rows.push({ kind: 'event', at: e.at, title: e.title, detail: e.detail, delta: e.after - e.before, after: e.after, link: e.link }); bal = e.after; });
+  if (m) gap(m.points, null);
+  return rows;
+}
+function ledgerHtml(mid) {
+  const rows = ledgerOf(mid).slice().reverse();   // newest first
+  const sign = d => (d > 0 ? '+' + d : d < 0 ? '−' + Math.abs(d) : '0');
+  return `<div class="ledger">` + rows.map(r => `<div class="led-row ${r.kind}">
+      <div class="led-main"><div class="led-title">${r.link ? `<a href="${r.link}">${esc(r.title)}</a>` : esc(r.title)}</div>
+        <div class="muted">${r.at ? fmtDate(r.at) + (r.detail ? ' · ' : '') : ''}${esc(r.detail || '')}</div></div>
+      <div class="led-num"><b class="${r.kind === 'start' ? '' : r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : ''}">${r.kind === 'start' ? r.delta : sign(r.delta)}</b><small>เหลือ ${r.after}</small></div></div>`).join('') + `</div>`;
+}
+/* ---- one member's points page (#/points/<id>) — open to everyone so anyone can check ---- */
+function viewMemberPoints(mid) {
+  const m = DB.members[mid]; if (!m) return `<h1>ไม่เจอชื่อนี้</h1><button class="btn btn-outline btn-block" data-act="go" data-to="#/points">กลับไปตารางแต้ม</button>`;
+  return `<h1>แต้มของ ${esc(m.name)}</h1><div class="card stat"><div class="muted">${esc(m.name)} · ${esc(m.job)}</div><div class="stat-num">${m.points}</div><div class="muted">แต้ม</div></div>
+    <h2>แต้มเปลี่ยนเมื่อไหร่</h2><p class="sec-sub">ล่าสุดอยู่บน · เลขขวาคือแต้มที่เหลือหลังรายการนั้น · กดชื่อตี้เพื่อดูรายละเอียด</p>${ledgerHtml(mid)}
+    <button class="btn btn-outline btn-block mt2" data-act="go" data-to="#/points">กลับไปตารางแต้ม</button>`;
+}
+
 /* ---- leaderboard ---- */
-function viewPoints() {
+function viewPoints(r) {
+  if (r && r.arg) return viewMemberPoints(r.arg);
   const q = UI.boardSearch.trim().toLowerCase();
   const list = vals(DB.members).filter(m => (!q || m.name.toLowerCase().includes(q)) && (!UI.boardJob || m.job === UI.boardJob)).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, 'th'));
   const myId = meId();
   return `<h1>แต้มทุกคน</h1>
     <label class="big-label" for="board-search">ค้นหาชื่อ</label><input id="board-search" type="search" data-input="board-search" value="${esc(UI.boardSearch)}" placeholder="พิมพ์ชื่อ">
     <label class="big-label mt" for="board-job">อาชีพ</label><select id="board-job" data-change="board-job"><option value="">ทุกอาชีพ</option>${JOBS.map(j => `<option ${UI.boardJob === j ? 'selected' : ''}>${j}</option>`).join('')}</select>
-    <div class="table-scroll mt"><table class="tbl"><tr><th>ที่</th><th>ชื่อ / อาชีพ</th><th class="num">แต้ม</th></tr>
-    ${list.map((m, i) => `<tr ${m.id === myId ? 'class="me"' : ''}><td>${i + 1}</td><td><b>${esc(m.name)}</b>${m.id === myId ? ' (คุณ)' : ''}${neckBadge(m)}<br>${esc(m.job)}</td><td class="num big-num">${m.points}</td></tr>`).join('') || '<tr><td colspan="3">ไม่เจอ</td></tr>'}</table></div>`;
+    <p class="sec-sub mt">แตะชื่อเพื่อดูว่าแต้มคนนั้นได้มา / ใช้ไปตอนไหน</p>
+    <div class="table-scroll"><table class="tbl"><tr><th>ที่</th><th>ชื่อ / อาชีพ</th><th class="num">แต้ม</th></tr>
+    ${list.map((m, i) => `<tr class="tap ${m.id === myId ? 'me' : ''}" data-act="go" data-to="#/points/${m.id}"><td>${i + 1}</td><td><b>${esc(m.name)}</b>${m.id === myId ? ' (คุณ)' : ''}${neckBadge(m)}<br>${esc(m.job)}</td><td class="num big-num">${m.points}</td></tr>`).join('') || '<tr><td colspan="3">ไม่เจอ</td></tr>'}</table></div>`;
 }
 
 /* ---- vault ---- */
