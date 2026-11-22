@@ -371,8 +371,8 @@ const WEAPON_LV = {
   1452021: 100, 1452044: 110, 1462015: 100, 1462016: 100, 1462017: 100, 1462039: 110, 1472051: 110, 1472052: 110, 1472053: 100,
   1482012: 100, 1482013: 110, 1492012: 100, 1492013: 110,
 };
-// agreed prices: ring 15 · chair 15 · books 5 · lv100 weapons 1 · lv110 (Dragon set, lv 105+) 3 · necklace 2 · gacha 1 (= 2 tickets)
-const PRICE_BY_ID = { 3010128: 15 };
+// agreed prices: ring 15 · chair 15 · Dragon Khanjar 5 · books 5 · lv100 weapons 1 · lv110 (Dragon set, lv 105+) 3 · necklace 2 · gacha 1 (= 2 tickets)
+const PRICE_BY_ID = { 3010128: 15, 1092049: 5 };
 function defaultPrice(id) {
   const it = itemOf(id);
   if (PRICE_BY_ID[id] != null) return PRICE_BY_ID[id];
