@@ -728,16 +728,27 @@ const Api = {
       adminCheck(actorId);
       const p = root.parties && root.parties[pid]; if (!p || p.status !== 'done') throw new UErr('ไม่พบตี้ที่จบแล้วนี้');
       const R = p.result = p.result || {}; R.awards = R.awards || [];
-      const nm = id => (root.members[id] ? root.members[id].name : id); let what = '';
+      const nm = id => (root.members[id] ? root.members[id].name : id); let what = '', extra = {};
       if (op.kind === 'winner') { const a = R.awards[op.i]; if (!a) throw new UErr('ไม่พบรายการนี้'); what = `${shortName(a.itemId)}: ${nm(a.memberId)} → ${nm(op.memberId)}`; a.memberId = op.memberId; }
       else if (op.kind === 'remove') { const a = R.awards[op.i]; if (!a) throw new UErr('ไม่พบรายการนี้'); what = `ลบ ${shortName(a.itemId)} ของ ${nm(a.memberId)}`; R.awards.splice(op.i, 1); }
-      else if (op.kind === 'add') { if (!root.members[op.memberId]) throw new UErr('เลือกคนก่อน'); R.awards.push({ itemId: Number(op.itemId), memberId: op.memberId, price: priceIn(root, op.itemId), kind: 'manual' }); what = `เพิ่ม ${shortName(op.itemId)} ให้ ${nm(op.memberId)}`; }
+      else if (op.kind === 'add') {
+        const m = root.members[op.memberId]; if (!m) throw new UErr('เลือกคนก่อน');
+        const cost = Math.max(0, Math.floor(Number(op.cost) || 0));
+        if (cost > m.points) throw new UErr(`${m.name} มีแต้มแค่ ${m.points} หัก ${cost} ไม่ได้`);
+        R.awards.push(cost ? { itemId: Number(op.itemId), memberId: op.memberId, price: cost, kind: 'manual', charged: true } : { itemId: Number(op.itemId), memberId: op.memberId, price: priceIn(root, op.itemId), kind: 'manual' });
+        what = `เพิ่ม ${shortName(op.itemId)} ให้ ${nm(op.memberId)}` + (cost ? ` · หัก ${cost} แต้ม (${m.points} → ${m.points - cost})` : '');
+        if (Number(op.itemId) === NECK) m.gotNecklace = true;
+        if (cost) {   // before/after go on the log row so the points history can show it
+          extra = { charge: true, memberId: op.memberId, itemId: Number(op.itemId), price: cost, before: m.points, after: m.points - cost };
+          m.points -= cost;
+        }
+      }
       else if (op.kind === 'delete') {
         addLog(root, { type: 'history-delete', by: actorId, partyId: pid, name: partyName(pid), count: keys(p.members || {}).length, awards: R.awards.length });
         delete root.parties[pid]; return root;
       }
       R.edited = { at: Date.now(), by: actorId };
-      addLog(root, { type: 'history-edit', by: actorId, partyId: pid, name: partyName(pid), what }); return root;
+      addLog(root, { type: 'history-edit', by: actorId, partyId: pid, name: partyName(pid), what, ...extra }); return root;
     });
   },
 
@@ -1475,7 +1486,7 @@ function deliveredHtml(p) {
   return `<h2>ส่งของจากคลังในตี้นี้ (${ls.length})</h2><div class="card">` + ls.map(l => `<div class="list-row row-between"><div class="item" style="grid-template-columns:40px 1fr;align-items:center">${iconHtml(l.itemId, true)}<div><b>${esc(shortName(l.itemId))}</b> → <b>${esc(nameOf(l.memberId))}</b><div class="note" style="margin:0">หัก ${l.price} แต้ม (${l.before} → ${l.after}) · ${fmtDate(l.at)}</div></div></div><span class="pill green">ส่งแล้ว ✓</span></div>`).join('') + `</div>`;
 }
 
-const awardNote = a => (a.kind === 'free' ? '(แจกฟรี)' : a.kind === 'manual' ? '(แอดมินเพิ่ม · ไม่ได้หักแต้ม)' : `(หัก ${a.price})`);
+const awardNote = a => (a.kind === 'free' ? '(แจกฟรี)' : a.kind === 'manual' ? (a.charged ? `(แอดมินเพิ่ม · หัก ${a.price})` : '(แอดมินเพิ่ม · ไม่ได้หักแต้ม)') : `(หัก ${a.price})`);
 /** admin edit panel for one finished round (history only) */
 function histEditHtml(p) {
   const R = p.result, people = keys(p.members).sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'th'));
@@ -1488,6 +1499,7 @@ function histEditHtml(p) {
   });
   h += `<div class="admin-row"><select id="he-item-${p.id}"><option value="">เลือกของ</option>${ITEMS.map(it => `<option value="${it.id}">${esc(it.name)}</option>`).join('')}</select>
     <select id="he-mem-${p.id}"><option value="">ให้ใคร</option>${opts('')}</select>
+    <input id="he-cost-${p.id}" type="number" min="0" step="1" inputmode="numeric" placeholder="หักแต้ม (ว่าง = ไม่หัก)">
     <button class="btn btn-outline btn-sm" data-act="he-add" data-pid="${p.id}">+ เพิ่มของ</button></div>
     <button class="btn btn-outline-red btn-block mt" data-act="he-delete" data-pid="${p.id}">ลบประวัติรอบนี้</button></div>`;
   return h;
@@ -1501,7 +1513,7 @@ function partyDoneHtml(p) {
   if (!(R.awards || []).length) h += `<div class="card">รอบนี้ไม่มีใครได้ของ</div>`;
   (R.awards || []).forEach(a => {
     h += `<div class="card"><div class="item">${iconHtml(a.itemId)}<div><div class="item-name">${esc(shortName(a.itemId))} → ${esc(nameOf(a.memberId))}</div>
-      <div>${a.kind === 'free' ? 'สุ่มแจกฟรี ไม่หักแต้ม' : a.kind === 'manual' ? 'แอดมินเพิ่มทีหลัง · ไม่ได้หักแต้ม' : `หัก ${a.price} แต้ม`}</div></div></div></div>`;
+      <div>${a.kind === 'free' ? 'สุ่มแจกฟรี ไม่หักแต้ม' : a.kind === 'manual' ? (a.charged ? `แอดมินเพิ่มทีหลัง · หัก ${a.price} แต้ม` : 'แอดมินเพิ่มทีหลัง · ไม่ได้หักแต้ม') : `หัก ${a.price} แต้ม`}</div></div></div></div>`;
   });
   if ((R.toVault || []).length) h += `<div class="card blue"><b>เข้าคลัง:</b> ${R.toVault.map(id => esc(shortName(id))).join(', ')}</div>`;
   h += `<h2>แต้มก่อน → หลัง</h2>` + pointsTable(R);
@@ -1681,6 +1693,8 @@ function ledgerOf(mid) {
   });
   vals(DB.log).filter(l => l.type === 'vault-deliver' && l.memberId === mid && 'before' in l)
     .forEach(l => ev.push({ at: l.at, title: 'ได้ของจากคลัง', detail: `${shortName(l.itemId)} −${l.price}`, before: l.before, after: l.after }));
+  vals(DB.log).filter(l => l.type === 'history-edit' && l.charge && l.memberId === mid && 'before' in l)
+    .forEach(l => ev.push({ at: l.at, title: 'แอดมินหักแต้ม · ' + (l.name || partyName(l.partyId)), detail: `ได้ ${shortName(l.itemId)} −${l.price}`, before: l.before, after: l.after, link: '#' + l.partyId }));
   ev.sort((a, b) => a.at - b.at);
   const m = DB.members[mid], rows = [];
   const start = ev.length ? ev[0].before : (m ? m.points : 0);
@@ -2113,8 +2127,11 @@ const ACT = {
   'he-winner': el => { const pid = el.dataset.pid, i = Number(el.dataset.i), mid = document.getElementById(`he-w-${pid}-${i}`).value; run(() => Api.histEdit(pid, meId(), { kind: 'winner', i, memberId: mid }), 'แก้แล้ว ✓'); },
   'he-remove': async el => { const pid = el.dataset.pid, i = Number(el.dataset.i), a = DB.parties[pid].result.awards[i];
     if (await confirmBox({ title: 'ลบรายการนี้?', body: `${esc(shortName(a.itemId))} → ${esc(nameOf(a.memberId))}<br>แก้แค่ประวัติ แต้มไม่คืน`, ok: 'ลบ', okClass: 'btn-danger', cancel: 'ไม่ลบ' })) run(() => Api.histEdit(pid, meId(), { kind: 'remove', i }), 'ลบแล้ว ✓'); },
-  'he-add': el => { const pid = el.dataset.pid, itemId = document.getElementById(`he-item-${pid}`).value, mid = document.getElementById(`he-mem-${pid}`).value;
-    if (!itemId || !mid) return toast('เลือกของและคนก่อน', 'err'); run(() => Api.histEdit(pid, meId(), { kind: 'add', itemId, memberId: mid }), 'เพิ่มแล้ว ✓'); },
+  'he-add': async el => { const pid = el.dataset.pid, itemId = document.getElementById(`he-item-${pid}`).value, mid = document.getElementById(`he-mem-${pid}`).value;
+    if (!itemId || !mid) return toast('เลือกของและคนก่อน', 'err');
+    const cost = Math.max(0, Math.floor(Number(document.getElementById(`he-cost-${pid}`).value) || 0));
+    if (cost && !(await confirmBox({ title: `หักแต้ม ${esc(nameOf(mid))} ${cost} แต้ม?`, body: `ได้ ${esc(shortName(Number(itemId)))} · ${esc(partyName(pid))}<br>แต้ม ${DB.members[mid].points} → <b>${DB.members[mid].points - cost}</b><br>ลบรายการทีหลัง แต้มไม่คืนอัตโนมัติ`, ok: 'หักแต้ม', cancel: 'ไม่หัก' }))) return;
+    run(() => Api.histEdit(pid, meId(), { kind: 'add', itemId, memberId: mid, cost }), cost ? `เพิ่มและหัก ${cost} แต้มแล้ว ✓` : 'เพิ่มแล้ว ✓'); },
   'he-delete': async el => { const pid = el.dataset.pid;
     if (await confirmBox({ title: `ลบประวัติ${esc(partyName(pid))}?`, body: '<b>แต้มของทุกคนไม่เปลี่ยน</b> (ถ้าต้องคืนแต้มต้องแก้ใน Firebase เอง)<br>ลบแล้วกู้ไม่ได้ แต่ในแท็บ "บันทึก" จะมีบันทึกว่าใครลบ', ok: 'ลบประวัติ', okClass: 'btn-danger', cancel: 'ไม่ลบ' })) run(() => Api.histEdit(pid, meId(), { kind: 'delete' }), 'ลบประวัติแล้ว ✓'); },
   // demo
