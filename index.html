@@ -277,6 +277,9 @@ input[type=time]{font:inherit;font-size:16px;min-height:44px;width:100%;max-widt
 tr.tap{cursor:pointer}
 tr.tap:hover td{background:var(--blue-l)}
 
+.card.reserve{border-style:dashed}
+.card.reserve .seat-no{width:auto;padding:0 6px}
+
 /* item filter tabs */
 .filter-label{font-size:14px;font-weight:600;margin:0 0 6px}
 .filter-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -546,6 +549,13 @@ const isLive = p => !!p && (p.status === 'open' || p.status === 'started');
 const groupOf = (p, mid) => (p.slots && p.slots[mid]) || 1;
 const groupMembers = (p, g) => keys(p.members).filter(id => groupOf(p, id) === g).sort((a, b) => p.members[a] - p.members[b]);
 const groupCount = p => p.groupCount || 1;
+/** รายชื่อสำรอง: p.reserves[mid] = signedUpAt (first come first listed) */
+const reserveIds = p => keys(p.reserves || {}).sort((a, b) => p.reserves[a] - p.reserves[b]);
+/** take someone out of the run (kick before lock / absent after lock): seat, leader, bookings, necklace order */
+function dropMember(p, mid) {
+  dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid];
+  if (p.neckOrder && p.neckOrder.order) p.neckOrder.order = p.neckOrder.order.filter(id => id !== mid);
+}
 const leaderOf = (p, g) => (p.leaders && p.leaders['g' + g]) || null;   // หัวตี้ย่อย of in-game party g
 const dropLeader = (p, mid) => { if (p.leaders) keys(p.leaders).forEach(k => { if (p.leaders[k] === mid) delete p.leaders[k]; }); };
 const SEAT_JOBS = ['Dark Knight', 'Bishop'];   // seat 1 / seat 2 of every in-game party are kept for these jobs
@@ -701,7 +711,7 @@ const Api = {
       if (!g) throw new UErr('ทุกปาร์ตี้เต็มแล้ว (หรือเหลือแต่ที่ของ Dark Knight / Bishop) รอคนเปิดตี้เพิ่มปาร์ตี้');
       if (g > groupCount(p)) throw new UErr('ไม่มีปาร์ตี้นี้');
       const why = seatBlock(root, p, g, job); if (why) throw new UErr(why);
-      p.members[mid] = Date.now(); p.slots[mid] = g;
+      p.members[mid] = Date.now(); p.slots[mid] = g; if (p.reserves) delete p.reserves[mid];
       if (lead && !leaderOf(p, g)) { p.leaders = p.leaders || {}; p.leaders['g' + g] = mid; }
       return root;
     });
@@ -810,13 +820,64 @@ const Api = {
     });
   },
 
+  /** รายชื่อสำรอง: anyone not in the run can sign up any time before the result */
+  async reserveJoin(pid, mid) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
+      if (p.members && p.members[mid]) throw new UErr('คุณอยู่ในตี้นี้แล้ว');
+      p.reserves = p.reserves || {}; if (p.reserves[mid]) throw new UErr('คุณลงชื่อสำรองไว้แล้ว');
+      p.reserves[mid] = Date.now(); return p;
+    });
+  },
+  /** take a name off the reserve list: yourself or the opener */
+  async reserveLeave(pid, mid, actorId) {
+    await backend.transaction(`parties/${pid}`, p => {
+      if (!p) throw new UErr('ไม่พบตี้นี้');
+      if (actorId !== mid && p.createdBy !== actorId) throw new UErr('ถอนได้แค่ชื่อตัวเอง');
+      if (p.reserves) delete p.reserves[mid]; return p;
+    });
+  },
+  /** opener moves a reserve into a seat (g = 0 → first free party) · after lock they can't book */
+  async promote(pid, mid, g, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid]; ownerCheck(p, actorId);
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
+      if (!p.reserves || !p.reserves[mid]) throw new UErr('คนนี้ไม่ได้อยู่ในรายชื่อสำรอง');
+      const job = jobOfId(root, mid); g = g || freeGroup(p, job, root);
+      if (!g) throw new UErr('ไม่มีที่ว่างสำหรับอาชีพนี้ เพิ่มปาร์ตี้ หรือกด "ลาขาด" คนที่ไม่มาก่อน');
+      const why = seatBlock(root, p, g, job); if (why) throw new UErr(why);
+      p.members = p.members || {}; p.slots = p.slots || {};
+      p.members[mid] = Date.now(); p.slots[mid] = g; delete p.reserves[mid];
+      addLog(root, { type: 'reserve-in', by: actorId, partyId: pid, memberId: mid, name: partyName(pid), g }); return root;
+    });
+  },
+  /** after lock: opener marks someone as not coming → out of the run (no +1, bookings dropped),
+   *  optionally a reserve takes that seat in the same party */
+  async absent(pid, mid, replaceId, actorId) {
+    await backend.transaction('', root => {
+      const p = root.parties && root.parties[pid]; ownerCheck(p, actorId);
+      if (!isLive(p)) throw new UErr('ตี้นี้จบแล้ว');
+      if (!p.locked) throw new UErr('ยังไม่ปิดจอง ใช้ปุ่ม "เอาออก" แทน');
+      if (!p.members || !p.members[mid]) throw new UErr('คนนี้ไม่ได้อยู่ในตี้');
+      if (mid === p.createdBy) throw new UErr('คนเปิดตี้กดลาขาดตัวเองไม่ได้');
+      const g = groupOf(p, mid), lost = myBookings(p, mid).length;
+      dropMember(p, mid);
+      if (replaceId) {
+        if (!p.reserves || !p.reserves[replaceId]) throw new UErr('คนแทนไม่ได้อยู่ในรายชื่อสำรอง');
+        const why = seatBlock(root, p, g, jobOfId(root, replaceId)); if (why) throw new UErr(`${nameOf(replaceId)} เข้าแทนไม่ได้: ${why}`);
+        p.members[replaceId] = Date.now(); p.slots = p.slots || {}; p.slots[replaceId] = g; delete p.reserves[replaceId];
+      }
+      addLog(root, { type: 'member-absent', by: actorId, partyId: pid, memberId: mid, replaceId: replaceId || null, bookings: lost, name: partyName(pid) }); return root;
+    });
+  },
+
   /** opener removes someone before the party starts */
   async kick(pid, mid, actorId) {
     await backend.transaction('', root => {
       const p = root.parties && root.parties[pid]; ownerCheck(p, actorId);
       if (!isLive(p) || p.locked) throw new UErr('ปิดจองแล้ว เอาคนออกไม่ได้');
       if (mid === p.createdBy) throw new UErr('เอาคนเปิดตี้ออกไม่ได้');
-      dropLeader(p, mid); delete p.members[mid]; if (p.slots) delete p.slots[mid]; if (p.bookings) delete p.bookings[mid];
+      dropMember(p, mid);
       addLog(root, { type: 'member-kick', by: actorId, partyId: pid, memberId: mid, name: partyName(pid) }); return root;
     });
   },
@@ -946,6 +1007,19 @@ const Api = {
       if (!top || top.id !== mid) throw new UErr('ข้อมูลเปลี่ยนแล้ว ลองดูใหม่อีกครั้ง');
       const price = priceIn(root, v.itemId);
       addLog(root, { type: 'vault-deliver', by: actorId, partyId: pid, memberId: mid, itemId: v.itemId, price, before: m.points, after: m.points - price, order: vaultRank(root, v).map(x => x.id) });
+      m.points -= price; delete root.vault[vid]; return root;
+    });
+  },
+  /** admin: item was already handed over in-game (no party running) → deduct points, take it out of the vault
+   *  skips the request queue and the job check on purpose; points must still cover the price */
+  async vaultGive(vid, mid, actorId) {
+    await backend.transaction('', root => {
+      adminCheck(actorId);
+      const v = root.vault && root.vault[vid], m = root.members[mid];
+      if (!v) throw new UErr('ไม่พบของชิ้นนี้ในคลัง'); if (!m) throw new UErr('เลือกคนก่อน');
+      const price = priceIn(root, v.itemId);
+      if (m.points < price) throw new UErr(`${m.name} มีแต้มแค่ ${m.points} ไม่พอ ${price}`);
+      addLog(root, { type: 'vault-deliver', by: actorId, admin: true, memberId: mid, itemId: v.itemId, price, before: m.points, after: m.points - price });
       m.points -= price; delete root.vault[vid]; return root;
     });
   },
@@ -1349,6 +1423,7 @@ function rosterHtml(p, m, isOwner) {
       if (isOwner && live && lead !== id) acts.push(`<button class="btn btn-outline btn-sm" data-act="lead-set" data-g="${g}" data-id="${id}">👑 ตั้งเป็นหัวตี้ย่อย</button>`);
       if (live && lead === id && (isOwner || mine)) acts.push(`<button class="btn btn-outline btn-sm" data-act="lead-clear" data-g="${g}">เลิกเป็นหัวตี้ย่อย</button>`);
       if (isOwner && open && id !== p.createdBy) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="kick" data-id="${id}">เอาออก</button>`);
+      if (isOwner && live && p.locked && id !== p.createdBy) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="absent" data-id="${id}">ลาขาด</button>`);
       if (!isOwner && mine && open) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="leave">ออกจากตี้</button>`);
       const bookState = open ? (bk.length ? 'booked' : 'unbooked') : '';
       return `<div class="mem ${mine ? 'me' : ''} ${lead === id ? 'is-lead' : ''} ${bookState}"><div class="mem-main">${seatNo ? `<span class="seat-no">${seatNo}</span>` : ''}${lead === id ? '<span title="หัวตี้ย่อย">👑</span> ' : ''}<b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span>${id === p.createdBy ? ' <span class="pill blue">คนเปิดตี้</span>' : ''}</div>
@@ -1368,6 +1443,22 @@ function rosterHtml(p, m, isOwner) {
     h += `</div>`;
   }
   if (isOwner && live && n < MAX_GROUPS) h += `<button class="add-tile" data-act="group-add">+ เพิ่มปาร์ตี้<br>(${n}/${MAX_GROUPS})</button>`;
+  return h + `</div>` + (live ? reserveHtml(p, m, isOwner) : '');
+}
+/* ---- รายชื่อสำรอง: sign up when parties are full · opener brings them in when someone drops out ---- */
+function reserveHtml(p, m, isOwner) {
+  const ids = reserveIds(p), inRun = m && p.members[m.id], onList = m && p.reserves[m.id];
+  let h = `<div class="card reserve mt2"><div class="group-head"><div><b>รายชื่อสำรอง</b></div><span class="muted">${ids.length} คน</span></div>
+    <p class="muted">ตี้เต็มแต่อยากลง ลงชื่อไว้ได้ · ถ้ามีคนออกหรือลาขาด คนเปิดตี้จะเลือกคนสำรองเข้าแทน${p.locked ? ' · เข้าหลังปิดจองแล้ว จองของไม่ได้ แต่ได้ +1 แต้ม' : ''}</p>`;
+  if (!ids.length) h += `<div class="seat-empty"><span>ยังไม่มีใครลงชื่อสำรอง</span></div>`;
+  ids.forEach((id, i) => {
+    const mm = DB.members[id], mine = m && id === m.id, acts = [];
+    if (isOwner) acts.push(`<button class="btn btn-outline btn-sm" data-act="promote-who" data-id="${id}">ให้เข้าปาร์ตี้</button>`);
+    if (isOwner || mine) acts.push(`<button class="btn btn-outline-red btn-sm" data-act="reserve-leave" data-id="${id}">${mine ? 'ถอนชื่อ' : 'เอาออกจากสำรอง'}</button>`);
+    h += `<div class="mem ${mine ? 'me' : ''}"><div class="mem-main"><span class="seat-no">ส${i + 1}</span><b>${esc(nameOf(id))}</b> <span class="muted">· ${esc(mm ? mm.job : '')}</span></div>
+      <div class="mem-pts">${mm ? mm.points : 0}<small> แต้ม</small></div>${acts.length ? `<div class="mem-act">${acts.join('')}</div>` : ''}</div>`;
+  });
+  if (!inRun && !onList) h += `<button class="btn btn-outline btn-block mt" data-act="reserve-join">✋ ลงชื่อสำรอง</button>`;
   return h + `</div>`;
 }
 
@@ -1397,8 +1488,8 @@ function viewParty(r) {
     else if (!mine.length) h += `<p class="note">👇 เลื่อนลงไปที่ "ของทั้งหมด" แล้วกด <b>จองชิ้นนี้</b> · จองได้จนคนเปิดตี้กดปิดจอง</p>`;
     h += `</div>`;
   } else if (!p.locked) h += freeGroup(p, m ? m.job : '') ? `<div class="join-hint">👇 <b>ยังไม่ได้เข้าตี้</b> · เลือกปาร์ตี้ด้านล่าง แล้วกด <b>"เข้าปาร์ตี้"</b>${m ? ' · เข้าแล้วจองของได้เลย' : ' (จะให้เลือกชื่อก่อน)'}</div>`
-      : `<div class="card red"><b>ไม่มีที่ว่างสำหรับคุณ</b> · ทุกปาร์ตี้เต็ม หรือเหลือแต่ที่ของ Dark Knight / Bishop · รอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
-  else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ปิดจองแล้ว ดูได้อย่างเดียว</div>`;
+      : `<div class="card red"><b>ไม่มีที่ว่างสำหรับคุณ</b> · ทุกปาร์ตี้เต็ม หรือเหลือแต่ที่ของ Dark Knight / Bishop · ${m && p.reserves[m.id] ? 'คุณอยู่ในรายชื่อสำรองแล้ว' : 'กด "ลงชื่อสำรอง" ท้ายรายชื่อ'} หรือรอคนเปิดตี้เพิ่มปาร์ตี้</div>`;
+  else if (m) h += `<div class="card red"><b>คุณไม่ได้อยู่ในตี้นี้</b> · ปิดจองแล้ว${p.reserves[m.id] ? ' · คุณอยู่ในรายชื่อสำรอง รอคนเปิดตี้เรียก' : ' · อยากลง กด "ลงชื่อสำรอง" ท้ายรายชื่อ'}</div>`;
   else h += `<div class="card blue"><b>ถ้าคุณอยู่ในตี้นี้</b> กด "เลือกชื่อ" ด้านบนก่อน</div>`;
 
   if (isOwner) {
@@ -1758,6 +1849,8 @@ function viewVault() {
       else { const e = eligibility(DB, m, v.itemId); h += e.ok ? `<button class="btn btn-primary btn-block" data-act="vault-request" data-id="${v.id}">ขอแลก</button><p class="reason ok">✓ แต้มพอ</p>` : disabledBtn('ขอแลก', e.reason); }
       h += '</div>';
     }
+    if (m && isAdmin(m.id)) h += `<div class="admin-row mt"><select id="vg-mem-${v.id}"><option value="">ส่งให้ใครไปแล้ว (แอดมิน)</option>${vals(DB.members).sort((a, b) => a.name.localeCompare(b.name, 'th')).map(x => `<option value="${x.id}">${esc(x.name)} · ${esc(x.job)} · ${x.points} แต้ม</option>`).join('')}</select>
+      <button class="btn btn-outline btn-sm" data-act="vault-give" data-id="${v.id}">บันทึกว่าส่งแล้ว</button></div>`;
     h += `</div>`;
   });
   return h;
@@ -1822,13 +1915,15 @@ function viewHistory() {
 }
 function logText(l) {
   switch (l.type) {
-    case 'vault-deliver': return `${shortName(l.itemId)} → ${nameOf(l.memberId)} (แต้ม ${l.before} → ${l.after})`;
+    case 'vault-deliver': return `${shortName(l.itemId)} → ${nameOf(l.memberId)} (แต้ม ${l.before} → ${l.after})${l.admin ? ` · ${nameOf(l.by)} (แอดมิน) บันทึกย้อนหลัง` : ''}`;
     case 'member-register': return `${l.name} สมัครใหม่`;
     case 'member-rename': return `${l.from} เปลี่ยนชื่อเป็น ${l.to}`;
     case 'party-open': return `${nameOf(l.by)} เปิด${l.name}`;
     case 'party-cancel': return `${nameOf(l.by)} ยกเลิก${l.name}`;
     case 'party-lock': return `${nameOf(l.by)} ปิดจอง${l.name} (${l.count} คน · จอง ${l.bookings} ชิ้น)`;
     case 'party-done': return `${nameOf(l.by)} บันทึกผล${l.name} (${l.count} คน +1 แต้ม · ได้ของ ${l.awards} ชิ้น${l.toVault ? ` · เข้าคลัง ${l.toVault}` : ''})`;
+    case 'member-absent': return `${nameOf(l.by)} แจ้ง ${nameOf(l.memberId)} ลาขาด ${l.name} (ไม่ได้แต้ม${l.bookings ? ` · ยกเลิกจอง ${l.bookings} ชิ้น` : ''})${l.replaceId ? ` · ${nameOf(l.replaceId)} (สำรอง) เข้าแทน` : ''}`;
+    case 'reserve-in': return `${nameOf(l.by)} เอา ${nameOf(l.memberId)} (สำรอง) เข้าปาร์ตี้ ${l.g} ${l.name}`;
     case 'member-kick': return `${nameOf(l.by)} เอา ${nameOf(l.memberId)} ออกจาก${l.name}`;
     case 'vault-add': return `${nameOf(l.by)} (แอดมิน) เพิ่ม ${shortName(l.itemId)}${l.qty > 1 ? ' ×' + l.qty : ''} เข้าคลัง`;
     case 'vault-request': return `${nameOf(l.memberId)} ขอแลก ${shortName(l.itemId)} จากคลัง`;
@@ -2086,6 +2181,32 @@ const ACT = {
     if (await confirmBox({ title: 'ยกเลิกตี้นี้?', body: `${esc(partyName(pid))} · ${keys(p.members).length} คน<br>ไม่มีใครได้แต้ม${nb ? ` · ของที่จองไว้ ${nb} ชิ้นยกเลิกหมด` : ''}<br><b>ยกเลิกแล้วย้อนกลับไม่ได้</b>`, ok: 'ยกเลิกตี้', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' }))
       { await run(() => Api.cancel(pid, meId()), 'ยกเลิกตี้แล้ว ✓'); if (!DB.parties[pid]) go('#/'); }
   },
+  'reserve-join': () => { const pid = route().pid; requireMe(() => run(() => Api.reserveJoin(pid, meId()), 'ลงชื่อสำรองแล้ว ✓')); },
+  'reserve-leave': async el => {
+    const pid = route().pid, id = el.dataset.id, mine = id === meId();
+    if (await confirmBox({ title: mine ? 'ถอนชื่อจากรายชื่อสำรอง?' : `เอา ${esc(nameOf(id))} ออกจากรายชื่อสำรอง?`, ok: mine ? 'ถอนชื่อ' : 'เอาออก', okClass: 'btn-danger', cancel: 'ไม่' }))
+      run(() => Api.reserveLeave(pid, id, meId()), 'เอาออกจากสำรองแล้ว ✓');
+  },
+  'promote-who': el => {
+    const p = DB.parties[route().pid], id = el.dataset.id, job = jobOfId(DB, id);
+    const btns = []; for (let g = 1; g <= groupCount(p); g++) { const n = groupMembers(p, g).length, why = seatBlock(DB, p, g, job);
+      btns.push(`<button class="btn btn-block ${why ? '' : 'btn-outline'}" data-act="promote-to" data-id="${id}" data-g="${g}" ${why ? 'disabled' : ''}>ปาร์ตี้ ${g} (${n}/${GROUP_SIZE})${why ? ' · ' + esc(why.replace(`ปาร์ตี้ ${g} `, '')) : ''}</button>`); }
+    openModal(`<h2>ให้ ${esc(nameOf(id))} (${esc(job)}) เข้าปาร์ตี้ไหน?</h2>${p.locked ? '<p class="note">ปิดจองแล้ว เข้ามาจะจองของไม่ได้ แต่ได้ +1 แต้มตอนจบ</p>' : ''}<div class="stack">${btns.join('')}<p class="note">ถ้าไม่มีที่ว่าง กด "ลาขาด" ที่คนที่ไม่มาก่อน แล้วเลือกคนนี้เข้าแทน</p><button class="btn btn-outline-red btn-block btn-lg" data-act="modal-close">ยกเลิก</button></div>`);
+  },
+  'promote-to': el => { closeModal(); const g = Number(el.dataset.g), id = el.dataset.id; run(() => Api.promote(route().pid, id, g, meId()), `${nameOf(id)} เข้าปาร์ตี้ ${g} แล้ว ✓`); },
+  absent: el => {
+    const p = DB.parties[route().pid], id = el.dataset.id, g = groupOf(p, id), bk = myBookings(p, id);
+    const opts = reserveIds(p).map(r => { const why = seatBlock(DB, p, g, jobOfId(DB, r), id);
+      return `<option value="${r}" ${why ? 'disabled' : ''}>${esc(nameOf(r))} · ${esc(jobOfId(DB, r))}${why ? ' (ที่นั่งไม่ตรงอาชีพ)' : ''}</option>`; }).join('');
+    openModal(`<h2>${esc(nameOf(id))} ลาขาด?</h2>
+      <p>เอาออกจากตี้ · <b>ไม่ได้ +1 แต้ม</b>${bk.length ? ` · ของที่จองไว้ (${bk.map(x => esc(shortName(x))).join(', ')}) ถูกยกเลิก` : ''}</p>
+      <label class="big-label mt" for="absent-rep">ให้ใครเข้าแทนในปาร์ตี้ ${g}</label>
+      <select id="absent-rep"><option value="">ไม่มีคนแทน</option>${opts}</select>
+      ${opts ? '' : '<p class="note">ยังไม่มีใครในรายชื่อสำรอง</p>'}
+      <div class="stack mt2"><button class="btn btn-danger btn-block btn-lg" data-act="absent-ok" data-id="${id}">ยืนยัน ลาขาด</button><button class="btn btn-outline btn-block btn-lg" data-act="modal-close">ไม่</button></div>`);
+  },
+  'absent-ok': el => { const id = el.dataset.id, rep = modalRoot.querySelector('#absent-rep').value; closeModal();
+    run(() => Api.absent(route().pid, id, rep || null, meId()), rep ? `${nameOf(id)} ลาขาด · ${nameOf(rep)} เข้าแทนแล้ว ✓` : `${nameOf(id)} ลาขาดแล้ว ✓`); },
   kick: async el => {
     const pid = route().pid, id = el.dataset.id;
     if (await confirmBox({ title: `เอา ${esc(nameOf(id))} ออกจากตี้?`, body: 'เขาจะไม่ได้แต้มรอบนี้ ของที่เขาจองจะถูกยกเลิก · ถ้ายังจะลง ให้เขากดเข้าตี้ใหม่ได้ก่อนปิดจอง', ok: 'เอาออก', okClass: 'btn-danger', cancel: 'ไม่เอาออก' }))
@@ -2104,6 +2225,12 @@ const ACT = {
     if (!itemId) return toast('เลือกของก่อน', 'err');
     if (await confirmBox({ title: 'เพิ่มเข้าคลัง?', body: `<div class="item">${iconHtml(itemId)}<div><div class="item-name">${esc(itemOf(itemId).name)}</div><span class="price">${price(itemId)} แต้ม</span></div></div><p class="mt">จำนวน ${qty} ชิ้น · มีบันทึกในแท็บ "บันทึก" ว่าใครเพิ่ม</p>`, ok: 'เพิ่มเข้าคลัง' }))
       run(() => Api.vaultAdd(itemId, qty, meId()), `เพิ่ม${thName(itemId)}เข้าคลังแล้ว ✓`);
+  },
+  'vault-give': async el => {
+    const v = DB.vault[el.dataset.id], mid = document.getElementById(`vg-mem-${v.id}`).value; if (!mid) return toast('เลือกคนก่อน', 'err');
+    const mm = DB.members[mid], pr = price(v.itemId);
+    if (await confirmBox({ title: `${esc(shortName(v.itemId))} → ${esc(mm.name)}?`, body: `บันทึกว่าส่งให้ในเกมแล้ว · เอาออกจากคลัง<br>หัก ${pr} แต้ม: ${mm.points} → <b>${mm.points - pr}</b>${jobOk(itemOf(v.itemId), mm.job) ? '' : `<br>⚠️ ${esc(mm.job)} ใช้ชิ้นนี้ไม่ได้`}`, ok: 'หักแต้ม · ส่งแล้ว', cancel: 'ไม่' }))
+      run(() => Api.vaultGive(v.id, mid, meId()), `${mm.name} ได้${thName(v.itemId)} หัก ${pr} แต้มแล้ว ✓`);
   },
   'vault-request': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ขอ ${esc(shortName(v.itemId))}?`, body: `ราคา ${price(v.itemId)} แต้ม · ตอนนี้ยังไม่หักแต้ม<br>ได้ของตอนมีตี้กำลังเล่น · ถ้ามีคนขอหลายคน แต้มมากสุดได้`, ok: 'ขอเลย' })) run(() => Api.vaultRequest(v.id, meId()), `ขอ${thName(v.itemId)}แล้ว ✓`); },
   'vault-cancel': async el => { const v = DB.vault[el.dataset.id]; if (await confirmBox({ title: `ยกเลิกที่ขอ ${esc(shortName(v.itemId))}?`, ok: 'ยกเลิกที่ขอ', okClass: 'btn-danger', cancel: 'ไม่ยกเลิก' })) run(() => Api.vaultCancel(v.id, meId()), 'ยกเลิกแล้ว ✓'); },
@@ -2176,7 +2303,7 @@ function normalize(snap) {
   const d = snap || {};
   ['members', 'parties', 'vault', 'log', 'prices', 'cancelled'].forEach(k => { d[k] = d[k] || {}; });
   vals(d.parties).forEach(p => {
-    p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1; p.leaders = p.leaders || {};
+    p.members = p.members || {}; p.bookings = p.bookings || {}; p.tieRolls = p.tieRolls || {}; p.slots = p.slots || {}; p.groupCount = p.groupCount || 1; p.leaders = p.leaders || {}; p.reserves = p.reserves || {};
     keys(p.bookings).forEach(mid => { const b = p.bookings[mid]; if (b == null || typeof b !== 'object') p.bookings[mid] = b == null ? {} : { [b]: 0 }; });   // old 1-item shape
     vals(p.tieRolls).forEach(r => { r.order = r.order || []; r.pool = r.pool || []; r.points = r.points || {}; });
     if (p.neckOrder) { p.neckOrder.order = p.neckOrder.order || []; p.neckOrder.points = p.neckOrder.points || {}; }
