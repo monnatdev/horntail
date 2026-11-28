@@ -1061,6 +1061,21 @@ const Api = {
       m.name = to; return root;
     });
   },
+  /** change your own job · not while you're in a party that isn't recorded yet (seats DK/Bishop + bookings depend on it)
+   *  vault requests the new job can't use are dropped */
+  async changeJob(mid, job) {
+    await backend.transaction('', root => {
+      const m = root.members && root.members[mid]; if (!m) throw new UErr('ไม่พบชื่อนี้');
+      if (!JOBS.includes(job)) throw new UErr('เลือกอาชีพก่อน');
+      if (job === m.job) throw new UErr('อาชีพเดิม ไม่ได้เปลี่ยน');
+      const live = vals(root.parties || {}).find(p => isLive(p) && p.members && p.members[mid]);
+      if (live) throw new UErr(`คุณอยู่ใน${partyName(live.id)} ที่ยังไม่จบ · เปลี่ยนอาชีพได้หลังบันทึกผล หรือออกจากตี้ก่อน`);
+      let dropped = 0;
+      vals(root.vault || {}).forEach(v => { if (v.requests && v.requests[mid] && !jobOk(itemOf(v.itemId), job)) { delete v.requests[mid]; dropped++; } });
+      addLog(root, { type: 'member-job', by: mid, memberId: mid, from: m.job, to: job, dropped });
+      m.job = job; return root;
+    });
+  },
 };
 /** first-time data: members, default prices, and past rounds from the old system
  *  (a round = who came, split into in-game parties; drops not recorded; everyone +1) */
@@ -1110,7 +1125,7 @@ function seedData() {
 let DB = null;
 const UI = {
   login: null, reg: { name: '', job: '' }, menuOpen: false, regOpen: false, loginSearch: '', filter: 'mine', search: '',
-  boardSearch: '', boardJob: '', drafts: {}, histTab: 'done', autoLock: {}, renameOpen: false, renameText: '', extraSearch: '', openHist: {},
+  boardSearch: '', boardJob: '', drafts: {}, histTab: 'done', autoLock: {}, renameOpen: false, renameText: '', renameJob: '', extraSearch: '', openHist: {},
   seenRolls: new Set(), loadedAt: Date.now(), rollQueue: [], rolling: false, demoPick: '',
 };
 const ss = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} } };
@@ -1757,11 +1772,13 @@ function vaultStatusText(v, mid) {
 function viewMe() {
   const m = me(); if (!m) return `<h1>แต้มของฉัน</h1><button class="btn btn-primary btn-xl btn-block" data-act="login">เลือกชื่อของฉัน</button>`;
   let h = `<h1>แต้มของฉัน</h1><div class="card stat"><div class="muted">${esc(m.name)} · ${esc(m.job)}</div><div class="stat-num">${m.points}</div><div class="muted">แต้ม</div></div>`;
-  h += !UI.renameOpen ? `<button class="btn btn-outline btn-block" data-act="rename-toggle">เปลี่ยนชื่อ</button>`
-    : `<div class="card"><div class="row-between"><h3 style="margin:0">เปลี่ยนชื่อ</h3><button class="btn btn-outline btn-sm" data-act="rename-toggle">ปิด</button></div>
-      <label class="big-label mt" for="rename-in">ชื่อใหม่ (ไม่เกิน 20 ตัว)</label><input id="rename-in" type="text" maxlength="20" autocomplete="off" data-input="rename" value="${esc(UI.renameText)}">
-      <p class="note">แต้มและประวัติยังอยู่ครบ · เพื่อนจะเห็นชื่อใหม่ทุกหน้า</p>
-      <div class="mt">${!UI.renameText.trim() || UI.renameText.trim() === m.name ? disabledBtn('บันทึกชื่อใหม่', UI.renameText.trim() ? 'ยังเป็นชื่อเดิม' : 'ใส่ชื่อก่อน') : `<button class="btn btn-primary btn-block" data-act="rename-save">บันทึกชื่อใหม่</button>`}</div></div>`;
+  const newName = UI.renameText.replace(/\s+/g, ' ').trim(), newJob = UI.renameJob || m.job, changed = (newName && newName !== m.name) || newJob !== m.job;
+  h += !UI.renameOpen ? `<button class="btn btn-outline btn-block" data-act="rename-toggle">เปลี่ยนชื่อ / อาชีพ</button>`
+    : `<div class="card"><div class="row-between"><h3 style="margin:0">เปลี่ยนชื่อ / อาชีพ</h3><button class="btn btn-outline btn-sm" data-act="rename-toggle">ปิด</button></div>
+      <label class="big-label mt" for="rename-in">ชื่อ (ไม่เกิน 20 ตัว)</label><input id="rename-in" type="text" maxlength="20" autocomplete="off" data-input="rename" value="${esc(UI.renameText)}">
+      <label class="big-label mt" for="rejob-in">อาชีพ</label><select id="rejob-in" data-change="rejob">${JOBS.map(j => `<option ${newJob === j ? 'selected' : ''}>${j}</option>`).join('')}</select>
+      <p class="note">แต้มและประวัติยังอยู่ครบ · เปลี่ยนอาชีพไม่ได้ระหว่างอยู่ในตี้ที่ยังไม่บันทึกผล</p>
+      <div class="mt">${!newName ? disabledBtn('บันทึก', 'ใส่ชื่อก่อน') : !changed ? disabledBtn('บันทึก', 'ยังเหมือนเดิม') : `<button class="btn btn-primary btn-block" data-act="rename-save">บันทึก</button>`}</div></div>`;
   const reqs = vals(DB.vault).filter(v => v.requests && v.requests[m.id]);
   h += `<h2>ของที่ฉันขอจากคลัง</h2>` + (reqs.length ? reqs.map(v => `<div class="card"><b>${esc(shortName(v.itemId))}</b> · ${price(v.itemId)} แต้ม<div class="muted">${vaultStatusText(v, m.id)}</div></div>`).join('') : '<div class="card">ยังไม่ได้ขอ</div>');
   h += `<button class="btn btn-outline btn-block" data-act="go" data-to="#/vault">ไปที่คลังของ</button>`;
@@ -1917,6 +1934,7 @@ function logText(l) {
   switch (l.type) {
     case 'vault-deliver': return `${shortName(l.itemId)} → ${nameOf(l.memberId)} (แต้ม ${l.before} → ${l.after})${l.admin ? ` · ${nameOf(l.by)} (แอดมิน) บันทึกย้อนหลัง` : ''}`;
     case 'member-register': return `${l.name} สมัครใหม่`;
+    case 'member-job': return `${nameOf(l.memberId)} เปลี่ยนอาชีพ ${l.from} → ${l.to}${l.dropped ? ` (ยกเลิกที่ขอจากคลัง ${l.dropped} ชิ้น)` : ''}`;
     case 'member-rename': return `${l.from} เปลี่ยนชื่อเป็น ${l.to}`;
     case 'party-open': return `${nameOf(l.by)} เปิด${l.name}`;
     case 'party-cancel': return `${nameOf(l.by)} ยกเลิก${l.name}`;
@@ -2079,12 +2097,16 @@ const ACT = {
   'login-pick': el => { UI.login.memberId = el.dataset.id; UI.login.step = 'pin'; UI.login.error = ''; UI.login.pin = ''; render(); },
   'login-repick': () => { UI.login.step = 'pick'; UI.login.error = ''; render(); },
   'login-cancel': () => { UI.login = null; render(); },
-  'rename-toggle': () => { UI.renameOpen = !UI.renameOpen; UI.renameText = UI.renameOpen && me() ? me().name : ''; render(); if (UI.renameOpen) { const el = document.getElementById('rename-in'); if (el) { el.focus(); el.select(); } } },
+  'rename-toggle': () => { UI.renameOpen = !UI.renameOpen; UI.renameText = UI.renameOpen && me() ? me().name : ''; UI.renameJob = UI.renameOpen && me() ? me().job : ''; render(); if (UI.renameOpen) { const el = document.getElementById('rename-in'); if (el) { el.focus(); el.select(); } } },
   'rename-save': async () => {
-    const m = me(), to = UI.renameText.replace(/\s+/g, ' ').trim();
-    if (!(await confirmBox({ title: 'เปลี่ยนชื่อ?', body: `<b>${esc(m.name)}</b> → <b>${esc(to)}</b><br>แต้มและประวัติยังอยู่ครบ`, ok: 'เปลี่ยนชื่อ' }))) return;
-    await run(() => Api.rename(m.id, to), `เปลี่ยนชื่อเป็น ${to} แล้ว ✓`);
-    if (me() && me().name === to) { UI.renameOpen = false; UI.renameText = ''; render(); }
+    const m = me(), to = UI.renameText.replace(/\s+/g, ' ').trim(), job = UI.renameJob || m.job;
+    const nameCh = to !== m.name, jobCh = job !== m.job, lines = [];
+    if (nameCh) lines.push(`ชื่อ: <b>${esc(m.name)}</b> → <b>${esc(to)}</b>`);
+    if (jobCh) lines.push(`อาชีพ: <b>${esc(m.job)}</b> → <b>${esc(job)}</b>`);
+    if (!(await confirmBox({ title: 'บันทึกการเปลี่ยนแปลง?', body: lines.join('<br>') + '<br>แต้มและประวัติยังอยู่ครบ', ok: 'บันทึก' }))) return;
+    if (nameCh) await run(() => Api.rename(m.id, to), `เปลี่ยนชื่อเป็น ${to} แล้ว ✓`);
+    if (jobCh) await run(() => Api.changeJob(m.id, job), `เปลี่ยนอาชีพเป็น ${job} แล้ว ✓`);
+    const n = me(); if (n && n.name === to && n.job === job) { UI.renameOpen = false; UI.renameText = ''; UI.renameJob = ''; render(); }
   },
   register: async () => {
     const id = await run(() => Api.register(UI.reg), 'สมัครแล้ว ✓ ตั้งรหัสต่อได้เลย');
@@ -2287,6 +2309,7 @@ const INPUT = {
 };
 const CHANGE = {
   'board-job': el => { UI.boardJob = el.value; render(); },
+  rejob: el => { UI.renameJob = el.value; render(); },
   'reg-job': el => { UI.reg.job = el.value; render(); },
   'demo-pick': el => { UI.demoPick = el.value; render(); },
 };
